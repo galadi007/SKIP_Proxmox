@@ -7,7 +7,7 @@ spec:
   project: default
 
   source:
-    repoURL: https://github.com/fhswf/PG-SKIP-Infrastructure.git
+    repoURL: https://github.com/galadi007/SKIP_Proxmox.git
     targetRevision: main
     path: apps/core
 
