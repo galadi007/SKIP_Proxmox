@@ -1,0 +1,138 @@
+---
+# SKIP Infrastructure – Ansible Playbook
+# Ziel: Single-Node k3s Cluster auf Ubuntu 24.04 (gaming, 172.17.204.135)
+#
+# Ausführen via:
+#   docker compose run --rm skip-tools make bootstrap
+
+- name: Provision single-node k3s
+  hosts: server
+  become: true
+
+  vars:
+    k3s_version: "v1.35.4+k3s1"
+    k3s_server_ip: "172.17.204.135"
+
+  tasks:
+
+    # -------------------------------------------------------
+    # 1. System vorbereiten
+    # -------------------------------------------------------
+
+    - name: Swap deaktivieren (sofort)
+      command: swapoff -a
+      changed_when: false
+
+    - name: Swap dauerhaft deaktivieren (fstab)
+      replace:
+        path: /etc/fstab
+        regexp: '^([^#].*\sswap\s.*)$'
+        replace: '# \1'
+
+    - name: Kernel-Module laden (overlay, br_netfilter)
+      modprobe:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - overlay
+        - br_netfilter
+
+    - name: Kernel-Module beim Boot laden
+      copy:
+        dest: /etc/modules-load.d/k3s.conf
+        content: |
+          overlay
+          br_netfilter
+
+    - name: Sysctl-Parameter für Kubernetes setzen
+      sysctl:
+        name: "{{ item.key }}"
+        value: "{{ item.value }}"
+        state: present
+        reload: true
+      loop:
+        - { key: "net.bridge.bridge-nf-call-iptables",  value: "1" }
+        - { key: "net.bridge.bridge-nf-call-ip6tables", value: "1" }
+        - { key: "net.ipv4.ip_forward",                 value: "1" }
+
+    - name: System-Pakete aktualisieren
+      apt:
+        update_cache: true
+        upgrade: dist
+        cache_valid_time: 3600
+
+    - name: Benötigte Pakete installieren
+      apt:
+        name:
+          - curl
+          - wget
+          - git
+          - jq
+          - open-iscsi
+          - nfs-common
+        state: present
+
+    - name: iSCSI Dienst aktivieren (für Longhorn)
+      systemd:
+        name: iscsid
+        enabled: true
+        state: started
+
+    # -------------------------------------------------------
+    # 2. k3s installieren
+    # -------------------------------------------------------
+
+    - name: k3s installieren
+      shell: |
+        curl -sfL https://get.k3s.io | \
+        INSTALL_K3S_VERSION="{{ k3s_version }}" \
+        sh -s - server \
+        --write-kubeconfig-mode 0644 \
+        --tls-san {{ k3s_server_ip }} \
+        --disable servicelb \
+        --disable traefik
+      args:
+        creates: /usr/local/bin/k3s
+
+    - name: k3s Service starten und aktivieren
+      systemd:
+        name: k3s
+        enabled: true
+        state: started
+
+    - name: Warten bis k3s API erreichbar ist
+      wait_for:
+        port: 6443
+        host: "{{ k3s_server_ip }}"
+        timeout: 60
+
+    # -------------------------------------------------------
+    # 3. kubeconfig verfügbar machen
+    # -------------------------------------------------------
+
+    - name: kubeconfig lokal für alle Admins zugänglich machen
+      fetch:
+        src: /etc/rancher/k3s/k3s.yaml
+        dest: "{{ playbook_dir }}/../kubeconfig"
+        flat: true
+
+    - name: Server-IP in kubeconfig eintragen
+      delegate_to: localhost
+      become: false
+      replace:
+        path: "{{ playbook_dir }}/../kubeconfig"
+        regexp: 'https://127.0.0.1:6443'
+        replace: "https://{{ k3s_server_ip }}:6443"
+
+    # -------------------------------------------------------
+    # 4. Cluster-Status prüfen
+    # -------------------------------------------------------
+
+    - name: Node-Status prüfen
+      command: k3s kubectl get nodes
+      register: node_status
+      changed_when: false
+
+    - name: Node-Status ausgeben
+      debug:
+        msg: "{{ node_status.stdout_lines }}"

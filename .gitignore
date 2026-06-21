@@ -1,0 +1,28 @@
+# Ansible
+ansible/inventory.ini
+
+# Kubernetes
+kubeconfig
+*.kubeconfig
+
+# SSH Keys
+*.pem
+*.key
+id_rsa
+id_ed25519
+id_ed25519_*
+
+# Secrets & Credentials
+.env
+*.env
+secrets/
+*.secret
+
+# Temporäre Dateien
+*.tmp
+*.log
+*.bak
+
+# OS
+.DS_Store
+Thumbs.db
