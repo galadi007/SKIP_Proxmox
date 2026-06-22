@@ -1,0 +1,40 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: harbor
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://helm.goharbor.io
+    chart: harbor
+    targetRevision: 1.19.0
+    helm:
+      values: |
+        expose:
+          type: ingress
+          tls:
+            enabled: false
+          ingress:
+            className: nginx
+            hosts:
+              core: harbor.192.168.0.165.nip.io
+
+        externalURL: http://harbor.192.168.0.165.nip.io:30741
+
+        harborAdminPassword: Harbor12345
+
+        trivy:
+          enabled: false
+
+        notary:
+          enabled: false
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: harbor
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
