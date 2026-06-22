@@ -106,6 +106,17 @@
         host: "{{ k3s_server_ip }}"
         timeout: 60
 
+
+    - name: Harbor Registry-Konfiguration für k3s ausrollen
+      template:
+        src: templates/registries.yaml.j2
+        dest: /etc/rancher/k3s/registries.yaml
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Restart k3s
+
+
     # -------------------------------------------------------
     # 3. kubeconfig verfügbar machen
     # -------------------------------------------------------
@@ -136,3 +147,10 @@
     - name: Node-Status ausgeben
       debug:
         msg: "{{ node_status.stdout_lines }}"
+
+
+  handlers:
+    - name: Restart k3s
+      systemd:
+        name: k3s
+        state: restarted
