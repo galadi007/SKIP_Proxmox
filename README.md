@@ -1,6 +1,6 @@
 # FH-Server: Setup-Anleitung
 
-> Team 1 – AI Infrastructure & Operations | Stand: 16.06.2026
+> Team 1 – AI Infrastructure & Operations | Stand: 23.06.2026
 
 ---
 
@@ -25,40 +25,44 @@
 ## Gesamtablauf
 
 ```text
-Schritt 1:  Lokale Tools installieren
+Phase 1:  Lokale Tools installieren
      ↓
-Schritt 2:  SSH-Zugang einrichten
+Phase 2:  SSH-Zugang einrichten
      ↓
-Schritt 3:  FH-Server vorbereiten (per SSH)
+Phase 3:  FH-Server vorbereiten (per SSH)
      ↓
-Schritt 4:  Repo klonen + Dateien anlegen
+Phase 4:  Repo-Dateien anlegen
+          → Makefile, Ansible, ArgoCD, App-Struktur
      ↓
-Schritt 5:  make bootstrap
-            → Ansible installiert k3s auf dem Server
-            ⚠ Cluster bereit, aber noch NICHT GitOps-fähig
+Phase 5:  Bootstrap ausführen
+          → make bootstrap     (k3s via Ansible installieren)
+          → make kubeconfig    (kubeconfig lokal verfügbar machen)
+          → make test          (Cluster-Verbindung prüfen)
+          → make argocd-bootstrap  (ArgoCD + App-of-Apps installieren)
+          ✓ Cluster ist jetzt GitOps-fähig
      ↓
-Schritt 6:  make kubeconfig
-            → kubeconfig lokal verfügbar machen
+Phase 6:  GitHub-Repo in ArgoCD registrieren
+          → Deploy Key als Secret hinterlegen
+          → ArgoCD Applications auf SSH-URL patchen
      ↓
-Schritt 7:  make test
-            → Cluster-Verbindung prüfen
-     ↓
-Schritt 8:  make argocd-bootstrap
-            → ArgoCD + App-of-Apps installieren
-            ✓ Ab jetzt ist der Cluster GitOps-fähig
+Phase 7:  Traefik deployen
+          → Ingress Controller via ArgoCD + HelmChart CRD
+          ✓ HTTP/HTTPS Traffic routing aktiv
 ```
 
 ---
 
 ## Phase 1 — Lokale Voraussetzungen
 
-### macOS
+### Schritt 1.1 — Tools installieren
+
+**macOS:**
 
 ```bash
 brew install ansible kubectl helm make git
 ```
 
-### Ubuntu / Debian
+**Ubuntu / Debian:**
 
 ```bash
 sudo apt update
@@ -73,7 +77,7 @@ rm kubectl
 curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 ```
 
-### Windows
+**Windows:**
 
 WSL2 mit Ubuntu installieren, dann wie Ubuntu/Debian vorgehen.
 
@@ -89,7 +93,7 @@ WSL2 mit Ubuntu installieren, dann wie Ubuntu/Debian vorgehen.
 > nicht in CMD oder PowerShell. Das Repo ins WSL2-Dateisystem klonen
 > (`~/PG-SKIP-Infrastructure`), nicht ins Windows-Dateisystem (`/mnt/c/...`).
 
-### Versionen prüfen
+### Schritt 1.2 — Versionen prüfen
 
 ```bash
 ansible --version
@@ -252,7 +256,7 @@ exit
 
 ## Phase 4 — Repo-Dateien anlegen (auf dem Admin-Rechner)
 
-### Schritt 4.0 — GitHub SSH-Zugang einrichten
+### Schritt 4.1 — GitHub SSH-Zugang einrichten
 
 Damit `git clone` über SSH funktioniert, muss ein eigener SSH-Key bei GitHub hinterlegt sein.
 Dieser Schritt ist einmalig pro Rechner — unabhängig vom Server-Key aus Phase 2.
@@ -301,7 +305,7 @@ Hi <username>! You've successfully authenticated...
 > Zugang zum FH-Server `gaming`. Dieser Key (`id_ed25519_github`) ist für den Zugang
 > zu GitHub. Beide müssen separat eingerichtet werden.
 
-### Schritt 4.1 — Repo klonen
+### Schritt 4.2 — Repo klonen
 
 ```bash
 git clone git@github.com:fhswf/PG-SKIP-Infrastructure.git
@@ -314,7 +318,7 @@ cd PG-SKIP-Infrastructure
 > git remote set-url origin git@github.com:fhswf/PG-SKIP-Infrastructure.git
 > ```
 
-### Schritt 4.2 — Verzeichnisstruktur anlegen
+### Schritt 4.3 — Verzeichnisstruktur anlegen
 
 ```bash
 mkdir -p ansible
@@ -355,7 +359,7 @@ PG-SKIP-Infrastructure/
         └── monitoring/
 ```
 
-### Schritt 4.3 — `.gitignore` anlegen
+### Schritt 4.4 — `.gitignore` anlegen
 
 ```bash
 cat > .gitignore << 'EOF'
@@ -374,7 +378,7 @@ id_ed25519*
 EOF
 ```
 
-### Schritt 4.4 — `bootstrap.sh` anlegen
+### Schritt 4.5 — `bootstrap.sh` anlegen
 
 ```bash
 cat > bootstrap.sh << 'EOF'
@@ -399,7 +403,7 @@ git update-index --chmod=+x bootstrap.sh
 > `git update-index --chmod=+x` setzt das Executable-Bit direkt in Git —
 > nach jedem `git clone` hat die Datei automatisch die richtigen Rechte.
 
-### Schritt 4.5 — `Makefile` anlegen
+### Schritt 4.6 — `Makefile` anlegen
 
 ```bash
 cat > Makefile << 'EOF'
@@ -449,7 +453,7 @@ argocd-ui:
 EOF
 ```
 
-### Schritt 4.6 — `ansible/inventory.ini.example` anlegen
+### Schritt 4.7 — `ansible/inventory.ini.example` anlegen
 
 ```bash
 cat > ansible/inventory.ini.example << 'EOF'
@@ -464,7 +468,7 @@ gaming ansible_host=172.17.204.135 ansible_user=<eigener-username> ansible_ssh_p
 EOF
 ```
 
-### Schritt 4.7 — `ansible/site.yml` anlegen
+### Schritt 4.8 — `ansible/site.yml` anlegen
 
 ```yaml
 # ansible/site.yml
@@ -593,7 +597,7 @@ EOF
 > servicelb wird durch MetalLB ersetzt, Traefik wird über ArgoCD als Helm-Chart deployt.
 > Beide werden deshalb bei der k3s-Installation deaktiviert.
 
-### Schritt 4.8 — `argocd/app-of-apps.yaml` anlegen
+### Schritt 4.9 — `argocd/app-of-apps.yaml` anlegen
 
 ```bash
 cat > argocd/app-of-apps.yaml << 'EOF'
@@ -626,7 +630,7 @@ EOF
 > Das App-of-Apps-Pattern: ArgoCD verwaltet sich selbst und deployt alle weiteren
 > Apps aus `apps/core/` und `apps/services/` automatisch aus Git heraus.
 
-### Schritt 4.9 — Dateien committen
+### Schritt 4.10 — Dateien committen
 
 ```bash
 git add .
@@ -837,6 +841,261 @@ kubectl get applications -n argocd -w
 
 ---
 
+## Phase 6 — GitHub-Repo in ArgoCD registrieren
+
+ArgoCD kann private GitHub-Repos nicht ohne Credentials lesen.  
+Ohne diesen Schritt zeigt ArgoCD folgenden Fehler in der UI:
+
+```
+ComparisonError: Failed to load target state: authentication required: Repository not found.
+```
+
+### Schritt 6.1 — Deploy Key als Secret hinterlegen
+
+Der Deploy Key liegt auf dem Server unter `/opt/skip/.ssh/pg_skip_deploy`.  
+Das Secret wird direkt auf dem Server angelegt:
+
+```bash
+ssh gaming
+
+sudo kubectl -n argocd create secret generic pg-skip-repo \
+  --from-literal=type=git \
+  --from-literal=url=git@github.com:fhswf/PG-SKIP-Infrastructure.git \
+  --from-file=sshPrivateKey=/opt/skip/.ssh/pg_skip_deploy
+
+sudo kubectl -n argocd label secret pg-skip-repo \
+  argocd.argoproj.io/secret-type=repository
+```
+
+Secret prüfen:
+
+```bash
+sudo kubectl get secret pg-skip-repo -n argocd
+```
+
+> **Wichtig:** Das Secret enthält den privaten SSH-Key — niemals ins Repo committen.
+
+### Schritt 6.2 — ArgoCD Applications auf SSH-URL patchen
+
+ArgoCD matcht Credentials anhand der **exakten URL**. Die `app-of-apps.yaml` und alle
+weiteren ArgoCD Applications wurden initial mit HTTPS-URL angelegt, das Secret jedoch
+mit SSH-URL. Das führt dazu dass ArgoCD kein passendes Credential findet.
+
+Alle Applications auf SSH-URL patchen:
+
+```bash
+# app-of-apps patchen
+sudo kubectl patch application app-of-apps -n argocd \
+  --type merge \
+  -p '{"spec":{"source":{"repoURL":"git@github.com:fhswf/PG-SKIP-Infrastructure.git"}}}'
+
+# weitere Applications (z.B. traefik) ebenfalls patchen
+sudo kubectl patch application traefik -n argocd \
+  --type merge \
+  -p '{"spec":{"source":{"repoURL":"git@github.com:fhswf/PG-SKIP-Infrastructure.git"}}}'
+```
+
+Alle Applications auf einmal prüfen:
+
+```bash
+sudo kubectl get applications -n argocd
+```
+
+### Schritt 6.3 — YAML-Dateien im Repo korrigieren
+
+Damit das Problem nicht bei jeder neuen Application wiederkehrt,
+alle ArgoCD YAML-Dateien im Repo auf SSH-URL umstellen:
+
+```bash
+# lokal im Repo (auf dem Admin-Rechner)
+sed -i 's|https://github.com/fhswf/PG-SKIP-Infrastructure.git|git@github.com:fhswf/PG-SKIP-Infrastructure.git|g' argocd/*.yaml
+
+git add .
+git commit -m "fix: use SSH URL for ArgoCD repo references"
+git push
+```
+
+> **Regel für alle künftigen ArgoCD Application-Manifeste:**  
+> Immer SSH-URL verwenden: `git@github.com:fhswf/PG-SKIP-Infrastructure.git`  
+> Niemals HTTPS-URL: `https://github.com/fhswf/PG-SKIP-Infrastructure.git`
+
+---
+
+## Phase 7 — Traefik deployen
+
+Traefik ist der Ingress Controller für den SKIP-Cluster und ersetzt ingress-nginx (EOL).  
+Traefik läuft als **NodePort** — kein MetalLB erforderlich auf einem Single-Node-Cluster.
+
+| Port | Protokoll | Erreichbar unter |
+|------|-----------|-----------------|
+| 30080 | HTTP | `http://172.17.204.135:30080` |
+| 30443 | HTTPS | `https://172.17.204.135:30443` |
+
+### Schritt 7.1 — Manifeste anlegen
+
+**`apps/core/traefik/namespace.yaml`**
+
+```yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: traefik
+```
+
+**`apps/core/traefik/helmrelease.yaml`**
+
+```yaml
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: traefik
+  namespace: kube-system   # HelmChart CRD muss in kube-system liegen
+spec:
+  repo: https://helm.traefik.io/traefik
+  chart: traefik
+  targetNamespace: traefik
+  version: "33.2.1"        # aktuelle stabile Version (Traefik v3)
+  valuesContent: |-
+    deployment:
+      replicas: 1
+
+    service:
+      type: NodePort
+
+    ports:
+      web:
+        nodePort: 30080
+      websecure:
+        nodePort: 30443
+
+    ingressRoute:
+      dashboard:
+        enabled: true
+
+    logs:
+      general:
+        level: INFO
+
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 256Mi
+```
+
+**`argocd/traefik.yaml`**
+
+```yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: traefik
+  namespace: argocd
+spec:
+  project: default
+
+  source:
+    repoURL: git@github.com:fhswf/PG-SKIP-Infrastructure.git
+    targetRevision: main
+    path: apps/core/traefik
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: traefik
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+```
+
+> **Warum `HelmChart` CRD statt `helm` direkt?**  
+> K3s bringt die `HelmChart` CRD (`helm.cattle.io/v1`) eingebaut mit. Der k3s-interne
+> Helm-Controller übernimmt das Deployment — `helm` muss dafür nicht lokal installiert sein.
+
+### Schritt 7.2 — Pushen und ArgoCD Application anlegen
+
+```bash
+git add .
+git commit -m "feat: Add Traefik ingress controller"
+git push
+```
+
+Die ArgoCD Application einmalig manuell anlegen (danach übernimmt ArgoCD automatisch):
+
+```bash
+export KUBECONFIG=~/PG-SKIP-Infrastructure/kubeconfig
+kubectl apply -f argocd/traefik.yaml
+```
+
+### Schritt 7.3 — Deployment prüfen
+
+```bash
+# ArgoCD Application Status
+kubectl get application traefik -n argocd
+
+# Pods prüfen
+kubectl get pods -n traefik
+
+# Service und NodePorts prüfen
+kubectl get svc -n traefik
+```
+
+Erwartete Ausgabe:
+
+```
+NAME      SYNC STATUS   HEALTH STATUS
+traefik   Synced        Healthy
+```
+
+```
+NAME      TYPE       PORT(S)
+traefik   NodePort   80:30080/TCP,443:30443/TCP
+```
+
+### Schritt 7.4 — Erreichbarkeit testen
+
+```bash
+curl http://172.17.204.135:30080
+```
+
+Eine HTTP 404-Antwort von Traefik bedeutet: Installation erfolgreich —
+kein Ingress ist konfiguriert, das ist korrekt.
+
+### Traefik Dashboard aufrufen (optional)
+
+```bash
+kubectl port-forward svc/traefik -n traefik 9000:9000
+```
+
+Browser: `http://localhost:9000/dashboard/`
+
+### Ingress-Ressourcen für künftige Services
+
+Alle künftigen Ingress-Objekte müssen `ingressClassName: traefik` verwenden:
+
+```yaml
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: mein-service.skip.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: mein-service
+                port:
+                  number: 80
+```
+
+---
+
 ## Bekannte Probleme & Hinweise
 
 | Problem | Ursache | Lösung |
@@ -849,6 +1108,9 @@ kubectl get applications -n argocd -w
 | `docker.socket` startet Docker neu | Nur `docker.service` gestoppt | Immer beide stoppen: `docker.service docker.socket` |
 | kubectl-Version stimmt nicht | Versionskonflikt mit k3s | kubectl Minor-Version muss zu k3s passen (`v1.35.x`) |
 | `make kubeconfig` schlägt fehl | kubeconfig noch nicht lesbar | Ansible-Playbook prüfen ob `mode: 0644` gesetzt wurde |
+| ArgoCD: `authentication required: Repository not found` | Kein Credential für das private Repo hinterlegt | Deploy Key als Secret anlegen (Phase 6) |
+| ArgoCD: Application bleibt `Unknown` nach Secret-Anlage | HTTPS-URL im Secret, SSH-URL in Application (oder umgekehrt) — URLs müssen exakt übereinstimmen | Applications mit `kubectl patch` auf SSH-URL umstellen (Phase 6.2) |
+| Neue ArgoCD Application zeigt sofort `Unknown` | `repoURL` in der YAML-Datei verwendet HTTPS statt SSH | In allen `argocd/*.yaml` immer SSH-URL verwenden: `git@github.com:...` |
 
 ---
 
@@ -877,4 +1139,3 @@ rm kubectl
 
 > **Hinweis:** Ein `skip-tools` Docker Container für einheitliche Tool-Versionen
 > ist als spätere Ergänzung geplant — sobald der Bootstrap-Prozess stabil läuft.
-

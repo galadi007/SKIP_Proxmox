@@ -1,0 +1,103 @@
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: harbor
+  namespace: kube-system   # HelmChart CRD muss in kube-system liegen
+spec:
+  repo: https://helm.goharbor.io
+  chart: harbor
+  targetNamespace: harbor
+  version: "1.16.0"        # Harbor v2.11.x
+  valuesContent: |-
+    # --- Externe URL ---
+    # Harbor ist über Traefik NodePort erreichbar 
+    externalURL: http://harbor.192.168.0.165.sslip.io:30080
+
+    expose:
+      type: ingress
+      ingress:
+        className: traefik
+        annotations:
+          nginx.ingress.kubernetes.io/ssl-redirect: "false"
+          ingress.kubernetes.io/ssl-redirect: "false"
+        hosts:
+          core: harbor.192.168.0.165.sslip.io
+      tls:
+        enabled: false
+
+    # --- Admin-Passwort ---
+    # Beim ersten Login ändern!
+    harborAdminPassword: "Harbor12345"
+
+    # --- Persistenter Storage ---
+    # local-path-provisioner von k3s wird verwendet
+    persistence:
+      enabled: true
+      resourcePolicy: keep
+      persistentVolumeClaim:
+        registry:
+          storageClass: local-path
+          size: 20Gi
+        jobservice:
+          jobLog:
+            storageClass: local-path
+            size: 1Gi
+        database:
+          storageClass: local-path
+          size: 1Gi
+        redis:
+          storageClass: local-path
+          size: 1Gi
+        trivy:
+          storageClass: local-path
+          size: 5Gi
+
+    # --- Ressourcen ---
+    # Konservative Limits für Single-Node
+    core:
+      resources:
+        requests:
+          memory: 256Mi
+          cpu: 100m
+        limits:
+          memory: 512Mi
+          cpu: 500m
+
+    registry:
+      resources:
+        requests:
+          memory: 256Mi
+          cpu: 100m
+        limits:
+          memory: 512Mi
+          cpu: 500m
+
+    database:
+      internal:
+        resources:
+          requests:
+            memory: 256Mi
+            cpu: 100m
+          limits:
+            memory: 512Mi
+            cpu: 500m
+
+    redis:
+      internal:
+        resources:
+          requests:
+            memory: 64Mi
+            cpu: 50m
+          limits:
+            memory: 256Mi
+            cpu: 250m
+
+    trivy:
+      enabled: true
+      resources:
+        requests:
+          memory: 256Mi
+          cpu: 100m
+        limits:
+          memory: 512Mi
+          cpu: 500m

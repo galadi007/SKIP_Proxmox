@@ -1,0 +1,38 @@
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: traefik
+  namespace: kube-system   # HelmChart CRD muss in kube-system liegen
+spec:
+  repo: https://helm.traefik.io/traefik
+  chart: traefik
+  targetNamespace: traefik
+  version: "33.2.1"        # aktuelle stabile Version (Traefik v3)
+  valuesContent: |-
+    deployment:
+      replicas: 1
+
+    service:
+      type: NodePort
+
+    ports:
+      web:
+        nodePort: 30080     # HTTP  → http://192.168.0.165:30080
+      websecure:
+        nodePort: 30443     # HTTPS → https://192.168.0.165:30443
+
+    ingressRoute:
+      dashboard:
+        enabled: true
+
+    logs:
+      general:
+        level: INFO
+
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 256Mi
