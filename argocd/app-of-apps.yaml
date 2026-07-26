@@ -9,7 +9,7 @@ spec:
   source:
     repoURL: git@github.com:galadi007/SKIP_Proxmox.git
     targetRevision: main
-    path: apps/core
+    path: argocd
 
   destination:
     server: https://kubernetes.default.svc

@@ -10,18 +10,11 @@ spec:
   version: "1.16.0"        # Harbor v2.11.x
   valuesContent: |-
     # --- Externe URL ---
-    # Harbor ist über Traefik NodePort erreichbar 
-    externalURL: http://harbor.192.168.0.165.sslip.io:30080
+    externalURL: https://harbor.192-168-0-165.sslip.io:30443
 
+    # --- Ingress ---
     expose:
-      type: ingress
-      ingress:
-        className: traefik
-        annotations:
-          nginx.ingress.kubernetes.io/ssl-redirect: "false"
-          ingress.kubernetes.io/ssl-redirect: "false"
-        hosts:
-          core: harbor.192.168.0.165.sslip.io
+      type: clusterIP
       tls:
         enabled: false
 
@@ -30,7 +23,6 @@ spec:
     harborAdminPassword: "Harbor12345"
 
     # --- Persistenter Storage ---
-    # local-path-provisioner von k3s wird verwendet
     persistence:
       enabled: true
       resourcePolicy: keep
@@ -53,7 +45,6 @@ spec:
           size: 5Gi
 
     # --- Ressourcen ---
-    # Konservative Limits für Single-Node
     core:
       resources:
         requests:
@@ -64,6 +55,7 @@ spec:
           cpu: 500m
 
     registry:
+      relativeurls: true    # Fix: Push-Traffic korrekt via Traefik routen
       resources:
         requests:
           memory: 256Mi
@@ -101,3 +93,9 @@ spec:
         limits:
           memory: 512Mi
           cpu: 500m
+
+  logs:
+    general:
+      level: INFO
+    access:
+      enabled: true

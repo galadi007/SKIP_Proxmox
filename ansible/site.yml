@@ -1,6 +1,6 @@
 ---
 # SKIP Infrastructure – Ansible Playbook
-# Ziel: Single-Node k3s Cluster auf Ubuntu 24.04 (gaming, 192.168.0.165)
+# Ziel: Single-Node k3s Cluster auf Ubuntu 24.04 (proxmox, 192.168.0.165)
 #
 # Ausführen via:
 #   docker compose run --rm skip-tools make bootstrap

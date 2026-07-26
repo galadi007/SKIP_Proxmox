@@ -6,8 +6,8 @@ bootstrap:
 
 # kubeconfig vom Server holen und lokal verfügbar machen
 kubeconfig:
-	scp gaming:/etc/rancher/k3s/k3s.yaml ./kubeconfig
-	sed -i 's/127.0.0.1/172.17.204.135/g' ./kubeconfig
+	scp proxmox:/etc/rancher/k3s/k3s.yaml ./kubeconfig
+	sed -i 's/127.0.0.1/192.168.0.165/g' ./kubeconfig
 	@echo "kubeconfig gespeichert. Aktivieren mit:"
 	@echo "  export KUBECONFIG=\$$(pwd)/kubeconfig"
 

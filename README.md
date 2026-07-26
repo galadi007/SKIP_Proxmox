@@ -1,12 +1,12 @@
 # FH-Server: Setup-Anleitung
 
-> Team 1 – AI Infrastructure & Operations | Stand: 23.06.2026
+> Team 1 – AI Infrastructure & Operations | Stand: 21.07.2026
 
 ---
 
 ## Voraussetzung
 
-✓ EduVPN aktiv — der Server `gaming` (172.17.204.135) ist nur über EduVPN erreichbar.
+✓ Die Proxmox-VM `proxmox` ist unter `192.168.0.165` im lokalen Netzwerk erreichbar.
 
 ---
 
@@ -48,6 +48,11 @@ Phase 6:  GitHub-Repo in ArgoCD registrieren
 Phase 7:  Traefik deployen
           → Ingress Controller via ArgoCD + HelmChart CRD
           ✓ HTTP/HTTPS Traffic routing aktiv
+     ↓
+Phase 8:  Harbor deployen
+          → Container Registry via ArgoCD + HelmChart CRD
+          → Docker Push/Pull über Port 30443 (HTTPS)
+          ✓ Container Images intern pushen und pullen
 ```
 
 ---
@@ -91,7 +96,7 @@ WSL2 mit Ubuntu installieren, dann wie Ubuntu/Debian vorgehen.
 
 > **Wichtig für Windows:** Alle nachfolgenden Befehle im WSL2-Ubuntu-Terminal ausführen,
 > nicht in CMD oder PowerShell. Das Repo ins WSL2-Dateisystem klonen
-> (`~/PG-SKIP-Infrastructure`), nicht ins Windows-Dateisystem (`/mnt/c/...`).
+> (`~/SKIP_Proxmox`), nicht ins Windows-Dateisystem (`/mnt/c/...`).
 
 ### Schritt 1.2 — Versionen prüfen
 
@@ -127,8 +132,8 @@ Den Inhalt an Prof. Giefers schicken — er trägt den Key auf dem Server ein.
 In `~/.ssh/config` einfügen:
 
 ```text
-Host gaming
-    HostName 172.17.204.135
+Host proxmox
+    HostName 192.168.0.165
     User <eigener-username>
     IdentityFile ~/.ssh/id_ed25519_skip
     IdentitiesOnly yes
@@ -137,7 +142,7 @@ Host gaming
 ### Schritt 2.4 — Verbindung testen
 
 ```bash
-ssh gaming
+ssh proxmox
 ```
 
 Erwartete Ausgabe:
@@ -152,7 +157,7 @@ Welcome to Ubuntu 24.04.3 LTS ...
 
 ## Phase 3 — FH-Server vorbereiten (per SSH)
 
-Alle Befehle in dieser Phase direkt auf dem Server ausführen (`ssh gaming`).
+Alle Befehle in dieser Phase direkt auf dem Server ausführen (`ssh proxmox`).
 
 ### Schritt 3.1 — Server aktualisieren
 
@@ -237,13 +242,13 @@ EOF
 ```bash
 cd /opt/skip
 sudo GIT_SSH_COMMAND="ssh -F /opt/skip/.ssh/config" \
-git clone git@github.com:fhswf/PG-SKIP-Infrastructure.git
+git clone git@github.com:galadi007/SKIP_Proxmox.git
 ```
 
 **Verzeichnis für alle Admins freigeben (einmalig pro Admin auf dem Server):**
 
 ```bash
-git config --global --add safe.directory /opt/skip/PG-SKIP-Infrastructure
+git config --global --add safe.directory /opt/skip/SKIP_Proxmox
 ```
 
 Server-Session beenden:
@@ -261,13 +266,13 @@ exit
 Damit `git clone` über SSH funktioniert, muss ein eigener SSH-Key bei GitHub hinterlegt sein.
 Dieser Schritt ist einmalig pro Rechner — unabhängig vom Server-Key aus Phase 2.
 
-**Schritt 4.0.1 — SSH-Schlüsselpaar generieren:**
+**Schritt 4.1.1 — SSH-Schlüsselpaar generieren:**
 
 ```bash
 ssh-keygen -t ed25519 -C "mail@fh-swf.de" -f ~/.ssh/id_ed25519_github
 ```
 
-**Schritt 4.0.2 — Öffentlichen Schlüssel anzeigen:**
+**Schritt 4.1.2 — Öffentlichen Schlüssel anzeigen:**
 
 ```bash
 cat ~/.ssh/id_ed25519_github.pub
@@ -277,7 +282,7 @@ cat ~/.ssh/id_ed25519_github.pub
 - Rechts oben auf Profilbild klicken → **Settings** → **SSH and GPG keys** → **New SSH key**
 - Titel vergeben (z.B. `skip-admin-macbook`) und Key einfügen
 
-**Schritt 4.0.3 — SSH-Konfiguration anlegen:**
+**Schritt 4.1.3 — SSH-Konfiguration anlegen:**
 
 In `~/.ssh/config` einfügen:
 
@@ -289,7 +294,7 @@ Host github.com
     IdentitiesOnly yes
 ```
 
-**Schritt 4.0.4 — Verbindung testen:**
+**Schritt 4.1.4 — Verbindung testen:**
 
 ```bash
 ssh -T git@github.com
@@ -302,20 +307,20 @@ Hi <username>! You've successfully authenticated...
 ```
 
 > **Zwei verschiedene SSH-Keys:** Der Key aus Phase 2 (`id_ed25519_skip`) ist für den
-> Zugang zum FH-Server `gaming`. Dieser Key (`id_ed25519_github`) ist für den Zugang
+> Zugang zum FH-Server `proxmox`. Dieser Key (`id_ed25519_github`) ist für den Zugang
 > zu GitHub. Beide müssen separat eingerichtet werden.
 
 ### Schritt 4.2 — Repo klonen
 
 ```bash
-git clone git@github.com:fhswf/PG-SKIP-Infrastructure.git
-cd PG-SKIP-Infrastructure
+git clone git@github.com:galadi007/SKIP_Proxmox.git
+cd SKIP_Proxmox
 ```
 
 > **Tipp:** Falls das Repo bereits über HTTPS geklont wurde, nachträglich auf SSH umstellen:
 >
 > ```bash
-> git remote set-url origin git@github.com:fhswf/PG-SKIP-Infrastructure.git
+> git remote set-url origin git@github.com:galadi007/SKIP_Proxmox.git
 > ```
 
 ### Schritt 4.3 — Verzeichnisstruktur anlegen
@@ -323,8 +328,8 @@ cd PG-SKIP-Infrastructure
 ```bash
 mkdir -p ansible
 mkdir -p argocd
-mkdir -p apps/core/metallb
 mkdir -p apps/core/traefik
+mkdir -p apps/core/harbor
 mkdir -p apps/core/cert-manager
 mkdir -p apps/core/longhorn
 mkdir -p apps/services/ollama
@@ -333,47 +338,16 @@ mkdir -p apps/services/qdrant
 mkdir -p apps/services/monitoring
 ```
 
-Ergebnis:
-
-```
-PG-SKIP-Infrastructure/
-├── Makefile
-├── bootstrap.sh
-├── .gitignore
-├── README.md
-├── ansible/
-│   ├── site.yml
-│   └── inventory.ini.example
-├── argocd/
-│   └── app-of-apps.yaml
-└── apps/
-    ├── core/                  # Layer 4 — Infrastruktur-Dienste
-    │   ├── metallb/
-    │   ├── traefik/
-    │   ├── cert-manager/
-    │   └── longhorn/
-    └── services/              # Layer 5 — KI-Dienste
-        ├── ollama/
-        ├── open-webui/
-        ├── qdrant/
-        └── monitoring/
-```
-
 ### Schritt 4.4 — `.gitignore` anlegen
 
 ```bash
 cat > .gitignore << 'EOF'
-# Lokale Konfigurationsdateien — nicht committen
 ansible/inventory.ini
 kubeconfig
-
-# SSH-Keys
 *.pem
 *.key
 id_ed25519*
 !*.pub
-
-# Umgebungsvariablen
 .env
 EOF
 ```
@@ -386,11 +360,7 @@ cat > bootstrap.sh << 'EOF'
 set -euo pipefail
 
 echo "=== SKIP Bootstrap ==="
-echo "Zielserver: $(grep ansible_host ansible/inventory.ini | awk '{print $2}' | cut -d= -f2)"
-echo ""
-
 ansible-playbook -i ansible/inventory.ini ansible/site.yml
-
 echo ""
 echo "=== Bootstrap abgeschlossen ==="
 echo "Nächster Schritt: make kubeconfig"
@@ -400,31 +370,23 @@ chmod +x bootstrap.sh
 git update-index --chmod=+x bootstrap.sh
 ```
 
-> `git update-index --chmod=+x` setzt das Executable-Bit direkt in Git —
-> nach jedem `git clone` hat die Datei automatisch die richtigen Rechte.
-
 ### Schritt 4.6 — `Makefile` anlegen
 
-```bash
-cat > Makefile << 'EOF'
+```makefile
 .PHONY: bootstrap kubeconfig test argocd-bootstrap argocd-password argocd-ui
 
-# k3s auf dem Server installieren (via Ansible)
 bootstrap:
 	./bootstrap.sh
 
-# kubeconfig vom Server holen und lokal verfügbar machen
 kubeconfig:
-	scp gaming:/etc/rancher/k3s/k3s.yaml ./kubeconfig
-	sed -i 's/127.0.0.1/172.17.204.135/g' ./kubeconfig
+	scp proxmox:/etc/rancher/k3s/k3s.yaml ./kubeconfig
+	sed -i 's/127.0.0.1/192.168.0.165/g' ./kubeconfig
 	@echo "kubeconfig gespeichert. Aktivieren mit:"
-	@echo "  export KUBECONFIG=\$$(pwd)/kubeconfig"
+	@echo "  export KUBECONFIG=$$(pwd)/kubeconfig"
 
-# Cluster-Verbindung prüfen
 test:
 	KUBECONFIG=./kubeconfig kubectl get nodes
 
-# ArgoCD + App-of-Apps installieren
 argocd-bootstrap:
 	KUBECONFIG=./kubeconfig kubectl create namespace argocd --dry-run=client -o yaml | \
 	  KUBECONFIG=./kubeconfig kubectl apply -f -
@@ -437,45 +399,27 @@ argocd-bootstrap:
 	KUBECONFIG=./kubeconfig kubectl apply -f argocd/app-of-apps.yaml
 	@echo ""
 	@echo "=== ArgoCD Bootstrap abgeschlossen ==="
-	@echo "Cluster ist jetzt GitOps-fähig."
-	@echo "Passwort abrufen: make argocd-password"
 
-# ArgoCD Admin-Passwort anzeigen
 argocd-password:
 	@KUBECONFIG=./kubeconfig kubectl -n argocd get secret argocd-initial-admin-secret \
 	  -o jsonpath="{.data.password}" | base64 -d
 	@echo ""
 
-# ArgoCD Web UI per Port-Forward öffnen
 argocd-ui:
 	@echo "ArgoCD UI: https://localhost:8080  (User: admin)"
 	KUBECONFIG=./kubeconfig kubectl port-forward svc/argocd-server -n argocd 8080:443
-EOF
 ```
 
 ### Schritt 4.7 — `ansible/inventory.ini.example` anlegen
 
-```bash
-cat > ansible/inventory.ini.example << 'EOF'
-# VORLAGE — als ansible/inventory.ini kopieren und anpassen
-# ansible/inventory.ini wird NICHT committet (steht in .gitignore)
-#
-# Jeder Admin trägt hier seinen eigenen Username und SSH-Key-Pfad ein.
-# Der Key-Name entspricht dem lokal generierten SSH-Key (Schritt 2.1).
-
+```ini
 [server]
-gaming ansible_host=172.17.204.135 ansible_user=<eigener-username> ansible_ssh_private_key_file=~/.ssh/id_ed25519_skip
-EOF
+proxmox ansible_host=192.168.0.165 ansible_user=<eigener-username> ansible_ssh_private_key_file=~/.ssh/id_ed25519_skip
 ```
 
 ### Schritt 4.8 — `ansible/site.yml` anlegen
 
 ```yaml
-# ansible/site.yml
-```
-
-```bash
-cat > ansible/site.yml << 'EOF'
 ---
 - name: SKIP Bootstrap — k3s auf FH-Server installieren
   hosts: server
@@ -483,11 +427,9 @@ cat > ansible/site.yml << 'EOF'
 
   vars:
     k3s_version: "v1.35.4+k3s1"
-    k3s_server_ip: "172.17.204.135"
+    k3s_server_ip: "192.168.0.165"
 
   tasks:
-
-    # --- System vorbereiten ---
 
     - name: Pakete aktualisieren
       apt:
@@ -496,51 +438,8 @@ cat > ansible/site.yml << 'EOF'
 
     - name: Benötigte Pakete installieren
       apt:
-        name:
-          - curl
-          - git
-          - jq
-          - open-iscsi
-          - nfs-common
+        name: [curl, git, jq, open-iscsi, nfs-common]
         state: present
-
-    - name: Swap deaktivieren (sofort)
-      command: swapoff -a
-      when: ansible_swaptotal_mb > 0
-
-    - name: Swap dauerhaft deaktivieren (fstab)
-      replace:
-        path: /etc/fstab
-        regexp: '^([^#].*\sswap\s.*)$'
-        replace: '# \1'
-
-    - name: Kernel-Module laden
-      modprobe:
-        name: "{{ item }}"
-        state: present
-      loop:
-        - br_netfilter
-        - overlay
-
-    - name: Kernel-Module beim Boot laden
-      copy:
-        dest: /etc/modules-load.d/k3s.conf
-        content: |
-          br_netfilter
-          overlay
-
-    - name: Sysctl-Parameter setzen
-      sysctl:
-        name: "{{ item.name }}"
-        value: "{{ item.value }}"
-        state: present
-        reload: yes
-      loop:
-        - { name: "net.bridge.bridge-nf-call-iptables",  value: "1" }
-        - { name: "net.bridge.bridge-nf-call-ip6tables", value: "1" }
-        - { name: "net.ipv4.ip_forward",                 value: "1" }
-
-    # --- k3s installieren ---
 
     - name: k3s installieren
       shell: |
@@ -560,15 +459,7 @@ cat > ansible/site.yml << 'EOF'
         delay: 5
         timeout: 120
 
-    - name: k3s-Dienst aktivieren und starten
-      systemd:
-        name: k3s
-        enabled: yes
-        state: started
-
-    # --- kubeconfig lokal verfügbar machen ---
-
-    - name: kubeconfig lokal für alle Admins zugänglich machen
+    - name: kubeconfig lokal verfügbar machen
       fetch:
         src: /etc/rancher/k3s/k3s.yaml
         dest: "{{ playbook_dir }}/../kubeconfig"
@@ -581,26 +472,14 @@ cat > ansible/site.yml << 'EOF'
         path: "{{ playbook_dir }}/../kubeconfig"
         regexp: 'https://127.0.0.1:6443'
         replace: "https://{{ k3s_server_ip }}:6443"
-
-    - name: Node-Status ausgeben
-      command: k3s kubectl get nodes
-      register: node_status
-      changed_when: false
-
-    - name: Node-Status anzeigen
-      debug:
-        msg: "{{ node_status.stdout_lines }}"
-EOF
 ```
 
-> **Hinweis zu `--disable servicelb` und `--disable traefik`:**
-> servicelb wird durch MetalLB ersetzt, Traefik wird über ArgoCD als Helm-Chart deployt.
-> Beide werden deshalb bei der k3s-Installation deaktiviert.
+> **Hinweis:** `--disable servicelb` und `--disable traefik` — beide werden über
+> ArgoCD deployt und deshalb bei der k3s-Installation deaktiviert.
 
 ### Schritt 4.9 — `argocd/app-of-apps.yaml` anlegen
 
-```bash
-cat > argocd/app-of-apps.yaml << 'EOF'
+```yaml
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -608,27 +487,20 @@ metadata:
   namespace: argocd
 spec:
   project: default
-
   source:
-    repoURL: https://github.com/fhswf/PG-SKIP-Infrastructure.git
+    repoURL: git@github.com:galadi007/SKIP_Proxmox.git
     targetRevision: main
-    path: apps/core
-
+    path: argocd
   destination:
     server: https://kubernetes.default.svc
     namespace: argocd
-
   syncPolicy:
     automated:
       prune: true
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
-EOF
 ```
-
-> Das App-of-Apps-Pattern: ArgoCD verwaltet sich selbst und deployt alle weiteren
-> Apps aus `apps/core/` und `apps/services/` automatisch aus Git heraus.
 
 ### Schritt 4.10 — Dateien committen
 
@@ -642,26 +514,12 @@ git push
 
 ## Phase 5 — Bootstrap ausführen (auf dem Admin-Rechner)
 
-> **Hinweis zu "lokal":** Alle Befehle in Phase 5 werden auf dem **eigenen Rechner**
-> des jeweiligen Admins ausgeführt (macOS, Linux oder WSL2) — nicht auf dem FH-Server.
-> Ansible, kubectl und make verbinden sich von dort aus per SSH bzw. über die kubeconfig
-> mit dem Server `gaming` (172.17.204.135).
-
 ### Schritt 5.1 — `inventory.ini` befüllen
 
 ```bash
 cp ansible/inventory.ini.example ansible/inventory.ini
+# Eigenen Username eintragen
 ```
-
-Eigenen Username und Key-Pfad eintragen:
-
-```ini
-[server]
-gaming ansible_host=172.17.204.135 ansible_user=<eigener-username> ansible_ssh_private_key_file=~/.ssh/id_ed25519_skip
-```
-
-> Jeder Admin trägt seinen eigenen Username und Key ein.
-> `inventory.ini` wird nicht committet — steht in `.gitignore`.
 
 ### Schritt 5.2 — Ansible-Verbindung testen
 
@@ -669,11 +527,7 @@ gaming ansible_host=172.17.204.135 ansible_user=<eigener-username> ansible_ssh_p
 ansible all -i ansible/inventory.ini -m ping
 ```
 
-Erwartete Ausgabe:
-
-```
-gaming | SUCCESS => { "ping": "pong" }
-```
+Erwartete Ausgabe: `proxmox | SUCCESS => { "ping": "pong" }`
 
 ### Schritt 5.3 — Bootstrap ausführen
 
@@ -681,38 +535,10 @@ gaming | SUCCESS => { "ping": "pong" }
 make bootstrap
 ```
 
-Das Ansible-Playbook erledigt folgende Schritte automatisch auf dem Server:
-
-| Phase | Was passiert |
-|---|---|
-| System vorbereiten | Pakete aktualisieren, Swap deaktivieren, Kernel-Module, Sysctl |
-| Pakete installieren | curl, git, jq, open-iscsi, nfs-common |
-| k3s installieren | Version `v1.35.4+k3s1`, servicelb und Traefik deaktiviert |
-| Warten | Bis k3s API auf Port 6443 antwortet |
-| Abschluss | kubeconfig lesbar machen, Node-Status ausgeben |
-
-> ⚠ **Wichtig:** Nach diesem Schritt ist k3s betriebsbereit,
-> aber der Cluster ist noch **nicht GitOps-fähig**.
-> ArgoCD fehlt noch — erst nach `make argocd-bootstrap` synchronisiert der Cluster aus Git.
+> ⚠ Nach diesem Schritt läuft k3s, aber der Cluster ist noch **nicht GitOps-fähig**.
+> Erst nach `make argocd-bootstrap` synchronisiert ArgoCD aus Git.
 
 ### Schritt 5.4 — kubeconfig aktivieren
-
-Das Ansible-Playbook hat die kubeconfig bereits automatisch geholt und die Server-IP
-eingetragen. Die Datei liegt nach dem Bootstrap unter `./kubeconfig` im Repo-Root.
-
-> **Wie es funktioniert:** `fetch` in `site.yml` holt `/etc/rancher/k3s/k3s.yaml`
-> vom Server nach `{{ playbook_dir }}/../kubeconfig` — also ins Repo-Root, nicht
-> ins `ansible/`-Unterverzeichnis. Danach ersetzt `replace` die interne Adresse
-> `127.0.0.1` durch die Server-IP `172.17.204.135` (Variable `k3s_server_ip`).
-
-`make kubeconfig` ist in diesem Fall ein optionaler manueller Fallback falls der
-Ansible-Schritt übersprungen wurde:
-
-```bash
-make kubeconfig
-```
-
-kubeconfig für die aktuelle Shell-Session aktivieren:
 
 ```bash
 # bash / zsh
@@ -720,30 +546,11 @@ export KUBECONFIG=$(pwd)/kubeconfig
 
 # fish
 set -x KUBECONFIG (pwd)/kubeconfig
-```
 
-Dauerhaft in der Shell-Konfiguration eintragen:
-
-**bash** (`~/.bashrc`):
-```bash
-echo 'export KUBECONFIG=~/PG-SKIP-Infrastructure/kubeconfig' >> ~/.bashrc
-source ~/.bashrc
-```
-
-**zsh** (`~/.zshrc`):
-```bash
-echo 'export KUBECONFIG=~/PG-SKIP-Infrastructure/kubeconfig' >> ~/.zshrc
-source ~/.zshrc
-```
-
-**fish** (`~/.config/fish/config.fish`):
-```bash
-echo 'set -x KUBECONFIG ~/PG-SKIP-Infrastructure/kubeconfig' >> ~/.config/fish/config.fish
+# Dauerhaft (fish):
+echo 'set -x KUBECONFIG ~/Development/SKIP/SKIP_Proxmox/kubeconfig' >> ~/.config/fish/config.fish
 source ~/.config/fish/config.fish
 ```
-
-> Die kubeconfig enthält Zugangsdaten für den Cluster und wird **nicht committet**
-> — steht in `.gitignore`.
 
 ### Schritt 5.5 — Cluster prüfen
 
@@ -755,7 +562,7 @@ Erwartete Ausgabe:
 
 ```
 NAME     STATUS   ROLES           AGE   VERSION
-gaming   Ready    control-plane   Xm    v1.35.4+k3s1
+proxmox   Ready    control-plane   Xm    v1.35.4+k3s1
 ```
 
 ### Schritt 5.6 — ArgoCD deployen
@@ -764,87 +571,24 @@ gaming   Ready    control-plane   Xm    v1.35.4+k3s1
 make argocd-bootstrap
 ```
 
-Dieser Schritt installiert ArgoCD im Namespace `argocd` und deployt die `app-of-apps.yaml`.
-Ab diesem Moment übernimmt ArgoCD die Synchronisation — alle weiteren Änderungen
-werden über Git deployt.
+> **Wichtig:** `--server-side` wird intern verwendet weil ArgoCD CRDs zu groß
+> für normales `kubectl apply` sind.
 
-```
-⚠ KRITISCHER SCHRITT:
-Erst nach make argocd-bootstrap ist der Cluster GitOps-fähig.
-Bis dahin werden Git-Pushes nicht automatisch synchronisiert.
-```
-
-### Schritt 5.7 — ArgoCD prüfen
+### Schritt 5.7 — ArgoCD UI öffnen
 
 ```bash
-kubectl get applications -n argocd
+make argocd-password   # Admin-Passwort anzeigen
+make argocd-ui         # Port-Forward starten
 ```
 
-Erwartete Ausgabe:
-
-```
-NAME          SYNC STATUS   HEALTH STATUS
-app-of-apps   Synced        Healthy
-```
-
-**ArgoCD-Passwort abrufen:**
-
-```bash
-make argocd-password
-```
-
-**ArgoCD Web UI öffnen:**
-
-```bash
-make argocd-ui
-```
-
-> **Wie der Zugriff funktioniert:** ArgoCD läuft als Pod auf dem Server `gaming`
-> (172.17.204.135) im Kubernetes-Cluster — nicht auf dem lokalen Rechner.
-> `make argocd-ui` startet `kubectl port-forward`, der einen temporären Tunnel vom
-> Admin-Rechner zum ArgoCD-Service im Cluster aufbaut:
->
-> ```
-> Browser (Admin-Rechner)
->   → localhost:8080
->   → kubectl port-forward  (Tunnel, läuft lokal)
->   → argocd-server Service im Cluster
->   → Pod auf gaming (172.17.204.135)
-> ```
->
-> Solange der Befehl läuft, ist die UI erreichbar. Mit `Ctrl+C` wird der Tunnel
-> beendet. Später erhält ArgoCD über Traefik einen permanenten Ingress und ist
-> direkt über eine URL erreichbar — dann entfällt der Port-Forward.
-
-Im Browser öffnen: `https://localhost:8080` | User: `admin`
-
-> Aktueller Befehl zum Passwort-Abruf (verwendet in `make argocd-password`):
-> ```bash
-> kubectl -n argocd get secret argocd-initial-admin-secret \
->   -o jsonpath="{.data.password}" | base64 -d
-> ```
-> Alternativ: `argocd admin initial-password -n argocd`
-
-### Schritt 5.8 — GitOps-Workflow testen
-
-```bash
-git add .
-git commit -m "test: ArgoCD sync prüfen"
-git push
-```
-
-Sync beobachten:
-
-```bash
-kubectl get applications -n argocd -w
-```
+Browser: `https://localhost:8080` | User: `admin`
 
 ---
 
 ## Phase 6 — GitHub-Repo in ArgoCD registrieren
 
-ArgoCD kann private GitHub-Repos nicht ohne Credentials lesen.  
-Ohne diesen Schritt zeigt ArgoCD folgenden Fehler in der UI:
+ArgoCD kann private GitHub-Repos nicht ohne Credentials lesen.
+Ohne diesen Schritt zeigt ArgoCD folgenden Fehler:
 
 ```
 ComparisonError: Failed to load target state: authentication required: Repository not found.
@@ -852,84 +596,57 @@ ComparisonError: Failed to load target state: authentication required: Repositor
 
 ### Schritt 6.1 — Deploy Key als Secret hinterlegen
 
-Der Deploy Key liegt auf dem Server unter `/opt/skip/.ssh/pg_skip_deploy`.  
-Das Secret wird direkt auf dem Server angelegt:
+> Auf dem **Server** ausführen.
 
 ```bash
-ssh gaming
+ssh proxmox
 
 sudo kubectl -n argocd create secret generic pg-skip-repo \
   --from-literal=type=git \
-  --from-literal=url=git@github.com:fhswf/PG-SKIP-Infrastructure.git \
-  --from-file=sshPrivateKey=/opt/skip/.ssh/pg_skip_deploy
+  --from-literal=url=git@github.com:galadi007/SKIP_Proxmox.git \
+  --from-file=sshPrivateKey=/opt/skip/.ssh/deploy_key
 
 sudo kubectl -n argocd label secret pg-skip-repo \
   argocd.argoproj.io/secret-type=repository
 ```
 
-Secret prüfen:
-
-```bash
-sudo kubectl get secret pg-skip-repo -n argocd
-```
-
-> **Wichtig:** Das Secret enthält den privaten SSH-Key — niemals ins Repo committen.
+> **Wichtig:** Niemals ins Repo committen — enthält den privaten SSH-Key.
 
 ### Schritt 6.2 — ArgoCD Applications auf SSH-URL patchen
 
-ArgoCD matcht Credentials anhand der **exakten URL**. Die `app-of-apps.yaml` und alle
-weiteren ArgoCD Applications wurden initial mit HTTPS-URL angelegt, das Secret jedoch
-mit SSH-URL. Das führt dazu dass ArgoCD kein passendes Credential findet.
-
-Alle Applications auf SSH-URL patchen:
-
 ```bash
-# app-of-apps patchen
 sudo kubectl patch application app-of-apps -n argocd \
   --type merge \
-  -p '{"spec":{"source":{"repoURL":"git@github.com:fhswf/PG-SKIP-Infrastructure.git"}}}'
+  -p '{"spec":{"source":{"repoURL":"git@github.com:galadi007/SKIP_Proxmox.git"}}}'
 
-# weitere Applications (z.B. traefik) ebenfalls patchen
 sudo kubectl patch application traefik -n argocd \
   --type merge \
-  -p '{"spec":{"source":{"repoURL":"git@github.com:fhswf/PG-SKIP-Infrastructure.git"}}}'
-```
-
-Alle Applications auf einmal prüfen:
-
-```bash
-sudo kubectl get applications -n argocd
+  -p '{"spec":{"source":{"repoURL":"git@github.com:galadi007/SKIP_Proxmox.git"}}}'
 ```
 
 ### Schritt 6.3 — YAML-Dateien im Repo korrigieren
 
-Damit das Problem nicht bei jeder neuen Application wiederkehrt,
-alle ArgoCD YAML-Dateien im Repo auf SSH-URL umstellen:
-
 ```bash
-# lokal im Repo (auf dem Admin-Rechner)
-sed -i 's|https://github.com/fhswf/PG-SKIP-Infrastructure.git|git@github.com:fhswf/PG-SKIP-Infrastructure.git|g' argocd/*.yaml
+sed -i 's|https://github.com/galadi007/SKIP_Proxmox.git|git@github.com:galadi007/SKIP_Proxmox.git|g' argocd/*.yaml
 
 git add .
 git commit -m "fix: use SSH URL for ArgoCD repo references"
 git push
 ```
 
-> **Regel für alle künftigen ArgoCD Application-Manifeste:**  
-> Immer SSH-URL verwenden: `git@github.com:fhswf/PG-SKIP-Infrastructure.git`  
-> Niemals HTTPS-URL: `https://github.com/fhswf/PG-SKIP-Infrastructure.git`
+> **Regel:** In allen `argocd/*.yaml` immer SSH-URL verwenden:
+> `git@github.com:galadi007/SKIP_Proxmox.git`
 
 ---
 
 ## Phase 7 — Traefik deployen
 
-Traefik ist der Ingress Controller für den SKIP-Cluster und ersetzt ingress-nginx (EOL).  
-Traefik läuft als **NodePort** — kein MetalLB erforderlich auf einem Single-Node-Cluster.
+Traefik läuft als **NodePort** — kein MetalLB erforderlich.
 
 | Port | Protokoll | Erreichbar unter |
 |------|-----------|-----------------|
-| 30080 | HTTP | `http://172.17.204.135:30080` |
-| 30443 | HTTPS | `https://172.17.204.135:30443` |
+| 30080 | HTTP | `http://192.168.0.165:30080` |
+| 30443 | HTTPS | `https://192.168.0.165:30443` |
 
 ### Schritt 7.1 — Manifeste anlegen
 
@@ -949,12 +666,12 @@ apiVersion: helm.cattle.io/v1
 kind: HelmChart
 metadata:
   name: traefik
-  namespace: kube-system   # HelmChart CRD muss in kube-system liegen
+  namespace: kube-system
 spec:
   repo: https://helm.traefik.io/traefik
   chart: traefik
   targetNamespace: traefik
-  version: "33.2.1"        # aktuelle stabile Version (Traefik v3)
+  version: "33.2.1"
   valuesContent: |-
     deployment:
       replicas: 1
@@ -995,16 +712,13 @@ metadata:
   namespace: argocd
 spec:
   project: default
-
   source:
-    repoURL: git@github.com:fhswf/PG-SKIP-Infrastructure.git
+    repoURL: git@github.com:galadi007/SKIP_Proxmox.git
     targetRevision: main
     path: apps/core/traefik
-
   destination:
     server: https://kubernetes.default.svc
     namespace: traefik
-
   syncPolicy:
     automated:
       prune: true
@@ -1013,85 +727,432 @@ spec:
       - CreateNamespace=true
 ```
 
-> **Warum `HelmChart` CRD statt `helm` direkt?**  
-> K3s bringt die `HelmChart` CRD (`helm.cattle.io/v1`) eingebaut mit. Der k3s-interne
-> Helm-Controller übernimmt das Deployment — `helm` muss dafür nicht lokal installiert sein.
-
 ### Schritt 7.2 — Pushen und ArgoCD Application anlegen
+
+> Auf dem **lokalen Rechner** ausführen.
 
 ```bash
 git add .
 git commit -m "feat: Add Traefik ingress controller"
 git push
-```
 
-Die ArgoCD Application einmalig manuell anlegen (danach übernimmt ArgoCD automatisch):
-
-```bash
-export KUBECONFIG=~/PG-SKIP-Infrastructure/kubeconfig
 kubectl apply -f argocd/traefik.yaml
 ```
 
 ### Schritt 7.3 — Deployment prüfen
 
 ```bash
-# ArgoCD Application Status
 kubectl get application traefik -n argocd
-
-# Pods prüfen
 kubectl get pods -n traefik
-
-# Service und NodePorts prüfen
 kubectl get svc -n traefik
+```
+
+Erreichbarkeit testen:
+
+```bash
+curl http://192.168.0.165:30080
+# Erwartung: HTTP 404 von Traefik (korrekt — kein Ingress konfiguriert)
+```
+
+> **Traefik v3:** Erlaubt nur einen Pfad pro `PathPrefix` — mehrere Pfade in
+> einer Regel sind nicht erlaubt. Jeden Pfad als separate Route definieren.
+
+---
+
+## Phase 8 — Harbor deployen
+
+Harbor ist die Container Registry für das SKIP-Projekt.
+
+| Komponente | Zweck |
+|------------|-------|
+| Core | API und Geschäftslogik |
+| Portal | Web-UI |
+| Registry | Eigentliche Image-Speicherung |
+| JobService | Async-Jobs |
+| PostgreSQL | Metadaten-Datenbank |
+| Redis | Cache und Job-Queue |
+| Trivy | Image-Vulnerability-Scanner |
+
+> **Hostname:** `harbor.192-168-0-165.sslip.io` löst automatisch auf `192.168.0.165`
+> auf — kein `/etc/hosts` Eintrag nötig, solange Internetzugang besteht.
+
+> **Docker Push/Pull:** Läuft über Port **30443** (HTTPS) mit selbstsigniertem
+> Traefik-Zertifikat. Docker muss die Registry als `insecure-registry` konfiguriert
+> werden — dann akzeptiert Docker das Zertifikat.
+
+### Schritt 8.1 — Manifeste anlegen
+
+> Auf dem **lokalen Rechner** ausführen.
+
+**`apps/core/harbor/namespace.yaml`**
+
+```yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: harbor
+```
+
+**`apps/core/harbor/helmrelease.yaml`**
+
+```yaml
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: harbor
+  namespace: kube-system
+spec:
+  repo: https://helm.goharbor.io
+  chart: harbor
+  targetNamespace: harbor
+  version: "1.16.0"
+  valuesContent: |-
+    # externalURL auf HTTP/30080 — Harbor selbst kennt kein HTTPS
+    externalURL: https://harbor.192-168-0-165.sslip.io:30443
+
+    # ClusterIP statt Ingress — Traefik IngressRoute übernimmt das Routing
+    # Harbor-eigener Ingress verursacht Probleme mit Docker Push über Traefik
+    expose:
+      type: clusterIP
+      tls:
+        enabled: false
+
+    harborAdminPassword: "Harbor12345"
+
+    persistence:
+      enabled: true
+      resourcePolicy: keep
+      persistentVolumeClaim:
+        registry:
+          storageClass: local-path
+          size: 20Gi
+        jobservice:
+          jobLog:
+            storageClass: local-path
+            size: 1Gi
+        database:
+          storageClass: local-path
+          size: 1Gi
+        redis:
+          storageClass: local-path
+          size: 1Gi
+        trivy:
+          storageClass: local-path
+          size: 5Gi
+
+    core:
+      resources:
+        requests:
+          memory: 256Mi
+          cpu: 100m
+        limits:
+          memory: 512Mi
+          cpu: 500m
+
+    registry:
+      relativeurls: true    # Relative Upload-URLs für korrekte Traefik-Weiterleitung
+      resources:
+        requests:
+          memory: 256Mi
+          cpu: 100m
+        limits:
+          memory: 512Mi
+          cpu: 500m
+
+    database:
+      internal:
+        resources:
+          requests:
+            memory: 256Mi
+            cpu: 100m
+          limits:
+            memory: 512Mi
+            cpu: 500m
+
+    redis:
+      internal:
+        resources:
+          requests:
+            memory: 64Mi
+            cpu: 50m
+          limits:
+            memory: 256Mi
+            cpu: 250m
+
+    trivy:
+      enabled: true
+      resources:
+        requests:
+          memory: 256Mi
+          cpu: 100m
+        limits:
+          memory: 512Mi
+          cpu: 500m
+```
+
+**`apps/core/harbor/ingressroute.yaml`**
+
+> Traefik IngressRoute statt Harbor-eigenem Ingress.
+> `websecure` + `tls: {}` stellt Harbor über HTTPS bereit (selbstsigniertes Zertifikat).
+> Jeder Pfad als eigene Route mit `priority: 100` — Traefik v3 erlaubt nur einen
+> Pfad pro `PathPrefix` Regel.
+
+```yaml
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: harbor
+  namespace: harbor
+spec:
+  entryPoints:
+    - web
+    - websecure
+  routes:
+    - match: Host(`harbor.192-168-0-165.sslip.io`) && PathPrefix(`/api/`)
+      kind: Rule
+      priority: 100
+      services:
+        - name: harbor-core
+          port: 80
+    - match: Host(`harbor.192-168-0-165.sslip.io`) && PathPrefix(`/service/`)
+      kind: Rule
+      priority: 100
+      services:
+        - name: harbor-core
+          port: 80
+    - match: Host(`harbor.192-168-0-165.sslip.io`) && PathPrefix(`/v2/`)
+      kind: Rule
+      priority: 100
+      services:
+        - name: harbor-core
+          port: 80
+    - match: Host(`harbor.192-168-0-165.sslip.io`) && PathPrefix(`/c/`)
+      kind: Rule
+      priority: 100
+      services:
+        - name: harbor-core
+          port: 80
+    - match: Host(`harbor.192-168-0-165.sslip.io`)
+      kind: Rule
+      priority: 10
+      services:
+        - name: harbor-portal
+          port: 80
+  tls: {}
+```
+
+**`argocd/harbor.yaml`**
+
+```yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: harbor
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: git@github.com:galadi007/SKIP_Proxmox.git
+    targetRevision: main
+    path: apps/core/harbor
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: harbor
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+```
+
+### Schritt 8.2 — Pushen und ArgoCD Application anlegen
+
+> Auf dem **lokalen Rechner** ausführen.
+
+```bash
+git add .
+git commit -m "feat: Add Harbor container registry with Traefik IngressRoute"
+git push
+
+kubectl apply -f argocd/harbor.yaml
+```
+
+> **fish shell:** `set -x KUBECONFIG ~/Development/SKIP/SKIP_Proxmox/kubeconfig`
+
+### Schritt 8.3 — containerd für HTTPS-Registry konfigurieren
+
+> Auf dem **Server** ausführen.
+
+containerd muss Harbor als vertrauenswürdige Registry kennen:
+
+```bash
+ssh proxmox
+sudo nano /etc/rancher/k3s/registries.yaml
+```
+
+Inhalt:
+
+```yaml
+mirrors:
+  "harbor.192-168-0-165.sslip.io:30443":
+    endpoint:
+      - "https://harbor.192-168-0-165.sslip.io:30443"
+```
+
+k3s neu starten:
+
+```bash
+sudo systemctl restart k3s
+```
+
+Warten bis k3s wieder bereit:
+
+```bash
+kubectl get nodes
+# Erwartung: proxmox   Ready
+```
+
+### Schritt 8.4 — Deployment prüfen
+
+> Vom **lokalen Rechner** ausführen.
+
+```bash
+kubectl get application harbor -n argocd
+kubectl get pods -n harbor -w
 ```
 
 Erwartete Ausgabe:
 
 ```
-NAME      SYNC STATUS   HEALTH STATUS
-traefik   Synced        Healthy
+NAME                      READY   STATUS
+harbor-core-xxx           1/1     Running
+harbor-database-xxx       1/1     Running
+harbor-jobservice-xxx     1/1     Running
+harbor-portal-xxx         1/1     Running
+harbor-redis-xxx          1/1     Running
+harbor-registry-xxx       2/2     Running
+harbor-trivy-xxx          1/1     Running
 ```
 
+> Erster Start dauert ca. 3–5 Minuten.
+
+### Schritt 8.5 — Harbor Web-UI aufrufen
+
+Browser: `https://harbor.192-168-0-165.sslip.io:30443`
+
+> Traefik zeigt eine Zertifikatswarnung (selbstsigniertes Zertifikat) — einmalig bestätigen.
+
+| Feld | Wert |
+|------|------|
+| User | `admin` |
+| Passwort | `Harbor12345` (Default — sofort ändern!) |
+
+### Schritt 8.6 — Admin-Passwort ändern
+
 ```
-NAME      TYPE       PORT(S)
-traefik   NodePort   80:30080/TCP,443:30443/TCP
+Admin (oben rechts) → User Profile → Change Password
 ```
 
-### Schritt 7.4 — Erreichbarkeit testen
+Anforderungen: mindestens 8 Zeichen, Groß- und Kleinbuchstaben sowie Zahlen.
+
+> **Niemals das Passwort ins Git-Repo committen.**
+> Neues Passwort dem Team mitteilen — alle Admins brauchen es für `docker login`.
+
+### Schritt 8.7 — Docker für Harbor Registry konfigurieren
+
+> Auf jedem Rechner ausführen der Images pushen oder pullen soll.
+
+Docker Push und Pull läuft über Port **30443** (HTTPS). Traefik verwendet ein
+selbstsigniertes Zertifikat — Docker muss die Registry als `insecure-registry`
+konfiguriert werden damit es das Zertifikat akzeptiert.
+
+**Linux:**
 
 ```bash
-curl http://172.17.204.135:30080
+sudo nano /etc/docker/daemon.json
 ```
 
-Eine HTTP 404-Antwort von Traefik bedeutet: Installation erfolgreich —
-kein Ingress ist konfiguriert, das ist korrekt.
+Falls die Datei bereits Einträge enthält:
 
-### Traefik Dashboard aufrufen (optional)
+```json
+{
+  "bip": "192.168.200.1/24",
+  "default-address-pools": [
+    { "base": "192.168.200.0/20", "size": 24 }
+  ],
+  "insecure-registries": ["harbor.192-168-0-165.sslip.io:30443"]
+}
+```
+
+Falls die Datei leer ist:
+
+```json
+{
+  "insecure-registries": ["harbor.192-168-0-165.sslip.io:30443"]
+}
+```
+
+Docker neu starten:
 
 ```bash
-kubectl port-forward svc/traefik -n traefik 9000:9000
+sudo systemctl restart docker
 ```
 
-Browser: `http://localhost:9000/dashboard/`
+**macOS (Docker Desktop):**
 
-### Ingress-Ressourcen für künftige Services
+Docker Desktop → Settings → Docker Engine → JSON ergänzen:
 
-Alle künftigen Ingress-Objekte müssen `ingressClassName: traefik` verwenden:
+```json
+{
+  "insecure-registries": ["harbor.192-168-0-165.sslip.io:30443"]
+}
+```
 
-```yaml
-spec:
-  ingressClassName: traefik
-  rules:
-    - host: mein-service.skip.local
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: mein-service
-                port:
-                  number: 80
+Apply & Restart klicken.
+
+### Schritt 8.8 — Projekte für SKIP anlegen
+
+In der Harbor UI:
+
+```
+Projects → New Project → Name: skip_core         Access: Private
+Projects → New Project → Name: skip_platform     Access: Private
+Projects → New Project → Name: skip_applications Access: Private
+```
+
+| Projekt | Zweck |
+|---------|-------|
+| `skip_core` | Basis-Images, Infrastruktur-Tools |
+| `skip_platform` | Platform-Services (Harbor, Traefik, etc.) |
+| `skip_applications` | KI-Anwendungen (Ollama, Open WebUI, Qdrant, etc.) |
+
+### Schritt 8.9 — Image pushen und pullen (Test)
+
+**Vom lokalen Rechner (empfohlen):**
+
+```bash
+docker login harbor.192-168-0-165.sslip.io:30443
+docker tag hello-world harbor.192-168-0-165.sslip.io:30443/skip_applications/hello-world:latest
+docker push harbor.192-168-0-165.sslip.io:30443/skip_applications/hello-world:latest
+docker pull harbor.192-168-0-165.sslip.io:30443/skip_applications/hello-world:latest
+```
+
+Image in Harbor UI prüfen: `Projects → skip_applications → Repositories`
+
+**Vom Server aus (Fallback):**
+
+```bash
+ssh proxmox
+
+sudo nano /etc/docker/daemon.json
+# insecure-registries: ["harbor.192-168-0-165.sslip.io:30443"] eintragen
+
+sudo systemctl restart docker
+sudo docker login harbor.192-168-0-165.sslip.io:30443
+sudo docker pull hello-world
+sudo docker tag hello-world harbor.192-168-0-165.sslip.io:30443/skip_applications/hello-world:latest
+sudo docker push harbor.192-168-0-165.sslip.io:30443/skip_applications/hello-world:latest
 ```
 
 ---
@@ -1100,42 +1161,110 @@ spec:
 
 | Problem | Ursache | Lösung |
 |---|---|---|
-| Server nicht erreichbar | EduVPN nicht aktiv | VPN verbinden, dann erneut versuchen |
-| `ansible: command not found` | Ansible nicht installiert | Lokale Voraussetzungen (Phase 1) nachholen |
+| Server nicht erreichbar | EduVPN nicht aktiv | VPN verbinden |
+| `ansible: command not found` | Ansible nicht installiert | Phase 1 nachholen |
 | `kubectl: command not found` | kubectl nicht installiert | Phase 1 nachholen |
-| `KUBECONFIG` nicht gesetzt | Umgebungsvariable fehlt | `export KUBECONFIG=$(pwd)/kubeconfig` |
+| `KUBECONFIG` nicht gesetzt | Umgebungsvariable fehlt | bash/zsh: `export KUBECONFIG=<pfad>/kubeconfig` — fish: `set -x KUBECONFIG <pfad>/kubeconfig` — dauerhaft in `~/.config/fish/config.fish` |
 | `Permission denied` SSH | Falscher Key oder Username | `inventory.ini` prüfen |
 | `docker.socket` startet Docker neu | Nur `docker.service` gestoppt | Immer beide stoppen: `docker.service docker.socket` |
 | kubectl-Version stimmt nicht | Versionskonflikt mit k3s | kubectl Minor-Version muss zu k3s passen (`v1.35.x`) |
-| `make kubeconfig` schlägt fehl | kubeconfig noch nicht lesbar | Ansible-Playbook prüfen ob `mode: 0644` gesetzt wurde |
-| ArgoCD: `authentication required: Repository not found` | Kein Credential für das private Repo hinterlegt | Deploy Key als Secret anlegen (Phase 6) |
-| ArgoCD: Application bleibt `Unknown` nach Secret-Anlage | HTTPS-URL im Secret, SSH-URL in Application (oder umgekehrt) — URLs müssen exakt übereinstimmen | Applications mit `kubectl patch` auf SSH-URL umstellen (Phase 6.2) |
-| Neue ArgoCD Application zeigt sofort `Unknown` | `repoURL` in der YAML-Datei verwendet HTTPS statt SSH | In allen `argocd/*.yaml` immer SSH-URL verwenden: `git@github.com:...` |
+| `make kubeconfig` schlägt fehl — kubeconfig ist Verzeichnis | `scp` hat Verzeichnis statt Datei angelegt | `rm -rf kubeconfig` dann nochmal |
+| ArgoCD: `authentication required` | Kein Credential hinterlegt | Deploy Key als Secret anlegen (Phase 6) |
+| ArgoCD: Application bleibt `Unknown` | HTTPS/SSH-URL Mismatch | Applications mit `kubectl patch` auf SSH-URL umstellen (Phase 6.2) |
+| `kubectl apply` bei ArgoCD schlägt fehl | CRD zu groß | `--server-side` verwenden |
+| `docker push` mit `404` obwohl curl funktioniert | Docker sieht EduVPN-Route nicht (eigener Netzwerk-Namespace) | Port 30443 verwenden — funktioniert auf allen Systemen |
+| `docker push` mit `404 page not found` über Traefik | Harbor-eigener Ingress funktioniert nicht mit Traefik für Docker Push | `expose.type: clusterIP` + Traefik `IngressRoute` verwenden (Phase 8.1) |
+| `registry` Key doppelt in `helmrelease.yaml` | YAML überschreibt ersten Eintrag — `relativeurls: true` geht verloren | `registry` nur einmal definieren, `relativeurls: true` vor `resources` |
+| `Ingress invalid: must be a DNS name, not an IP address` | Kubernetes erlaubt keine IP als Ingress-Host | sslip.io Hostname verwenden |
+| `PathPrefix` mit mehreren Pfaden in Traefik v3 | Traefik v3 erlaubt nur einen Pfad pro Regel | Jeden Pfad als separate Route definieren |
+| Harbor Pods bleiben in `Pending` | PVCs nicht gebunden | `kubectl get pvc -n harbor` prüfen |
+| sslip.io nicht auflösbar | Kein Internetzugang | EduVPN prüfen |
 
 ---
 
 ## Versionen synchron halten
 
-Wenn k3s auf dem Server geupdatet wird, muss kubectl lokal angepasst werden.
-
 ```bash
 # k3s-Version auf dem Server prüfen
-ssh gaming "k3s --version"
+ssh proxmox "k3s --version"
 
 # kubectl-Version lokal prüfen
 kubectl version --client
 ```
 
-kubectl manuell aktualisieren (Linux/WSL2):
-
-```bash
-curl -LO "https://dl.k8s.io/release/v1.35.0/bin/linux/amd64/kubectl"
-sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
-rm kubectl
-```
-
 ---
 
+## Nächste Schritte — Produktive CI/CD Pipeline
 
-> **Hinweis:** Ein `skip-tools` Docker Container für einheitliche Tool-Versionen
-> ist als spätere Ergänzung geplant — sobald der Bootstrap-Prozess stabil läuft.
+### Option A — GitHub Actions mit Self-Hosted Runner (empfohlen)
+
+```yaml
+# .github/workflows/build-push.yml
+name: Build and Push Image
+on:
+  push:
+    branches: [main]
+jobs:
+  build:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+      - name: Login to Harbor
+        run: |
+          echo "${{ secrets.HARBOR_PASSWORD }}" | \
+          docker login harbor.192-168-0-165.sslip.io:30443 \
+            -u admin --password-stdin
+      - name: Build and Push
+        run: |
+          docker build -t harbor.192-168-0-165.sslip.io:30443/skip_applications/myapp:latest .
+          docker push harbor.192-168-0-165.sslip.io:30443/skip_applications/myapp:latest
+```
+
+Runner auf dem Server installieren:
+
+```bash
+ssh proxmox
+mkdir -p /opt/skip/actions-runner && cd /opt/skip/actions-runner
+curl -o actions-runner-linux-x64-2.321.0.tar.gz -L \
+  https://github.com/actions/runner/releases/download/v2.321.0/actions-runner-linux-x64-2.321.0.tar.gz
+tar xzf ./actions-runner-linux-x64-2.321.0.tar.gz
+
+# Token aus: GitHub → Repository → Settings → Actions → Runners
+./config.sh --url https://github.com/galadi007/SKIP_Proxmox \
+  --token <RUNNER_TOKEN>
+
+sudo ./svc.sh install
+sudo ./svc.sh start
+```
+
+### Option B — Kaniko im Cluster (GitOps-konform)
+
+```yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kaniko-build
+spec:
+  template:
+    spec:
+      containers:
+        - name: kaniko
+          image: gcr.io/kaniko-project/executor:latest
+          args:
+            - "--context=git://github.com/galadi007/SKIP_Proxmox"
+            - "--destination=harbor.192-168-0-165.sslip.io:30443/skip_applications/myapp:latest"
+            - "--insecure"
+      restartPolicy: Never
+```
+
+### Option C — n8n Workflow (Low-Code)
+
+Wenn n8n deployt ist, kann ein Workflow den Build-Prozess per SSH auf `proxmox` triggern.
+
+### Empfehlung
+
+**Kurzfristig:** Manueller Push über Port 30443 vom lokalen Rechner (Schritt 8.9).
+
+**Mittelfristig:** GitHub Actions Self-Hosted Runner (Option A).
+
+**Langfristig:** Kaniko im Cluster (Option B) — vollständig GitOps-konform.
