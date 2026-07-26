@@ -7,7 +7,7 @@ spec:
   repo: https://helm.traefik.io/traefik
   chart: traefik
   targetNamespace: traefik
-  version: "33.2.1"        # aktuelle stabile Version (Traefik v3)
+  version: "33.2.1"        # bewusst gepinnt (Traefik v3)
   valuesContent: |-
     deployment:
       replicas: 1

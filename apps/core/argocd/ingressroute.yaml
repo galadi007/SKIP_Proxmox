@@ -1,16 +1,16 @@
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
 metadata:
-  name: harbor
-  namespace: harbor
+  name: argocd
+  namespace: argocd
 spec:
   entryPoints:
     - websecure
   routes:
-    - match: Host(`harbor.192-168-0-165.sslip.io`)
-      kind: Rule
+    - kind: Rule
+      match: Host(`argocd.192-168-0-165.sslip.io`)
       services:
-        - name: harbor
+        - name: argocd-server
           port: 80
   tls:
     secretName: skip-ingress-tls

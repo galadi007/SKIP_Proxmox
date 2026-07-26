@@ -7,7 +7,7 @@ spec:
   repo: https://helm.goharbor.io
   chart: harbor
   targetNamespace: harbor
-  version: "1.16.0"        # Harbor v2.11.x
+  version: "1.16.0"        # bewusst gepinnt; Harbor v2.12.x
   valuesContent: |-
     # --- Externe URL ---
     externalURL: https://harbor.192-168-0-165.sslip.io:30443
@@ -93,9 +93,3 @@ spec:
         limits:
           memory: 512Mi
           cpu: 500m
-
-  logs:
-    general:
-      level: INFO
-    access:
-      enabled: true

@@ -1,9 +1,9 @@
 ---
 # SKIP Infrastructure – Ansible Playbook
-# Ziel: Single-Node k3s Cluster auf Ubuntu 24.04 (proxmox, 192.168.0.165)
+# Ziel: Single-Node k3s Cluster auf Ubuntu 24.04 (skip, 192.168.0.165)
 #
 # Ausführen via:
-#   docker compose run --rm skip-tools make bootstrap
+#   make bootstrap
 
 - name: Provision single-node k3s
   hosts: server
@@ -11,7 +11,29 @@
 
   vars:
     k3s_version: "v1.35.4+k3s1"
-    k3s_server_ip: "192.168.0.165"
+    k3s_server_ip: "{{ ansible_host }}"
+    sslip_domain: "{{ k3s_server_ip | replace('.', '-') }}.sslip.io"
+    harbor_host: "harbor.{{ sslip_domain }}"
+    argocd_host: "argocd.{{ sslip_domain }}"
+    tls_dir: /etc/skip/tls
+    ingress_tls_secret: skip-ingress-tls
+
+  handlers:
+    - name: Zertifikatsspeicher aktualisieren
+      ansible.builtin.command: update-ca-certificates
+
+    - name: k3s-Dienst neu starten
+      ansible.builtin.systemd:
+        name: k3s
+        state: restarted
+      listen: k3s neu starten
+
+    - name: Nach dem k3s-Neustart auf die API warten
+      ansible.builtin.wait_for:
+        host: "{{ k3s_server_ip }}"
+        port: 6443
+        timeout: 90
+      listen: k3s neu starten
 
   tasks:
 
@@ -68,6 +90,7 @@
           - wget
           - git
           - jq
+          - openssl
           - open-iscsi
           - nfs-common
         state: present
@@ -107,7 +130,202 @@
         timeout: 60
 
     # -------------------------------------------------------
-    # 3. kubeconfig verfügbar machen
+    # 3. Lokales TLS für Harbor und ArgoCD
+    # -------------------------------------------------------
+
+    - name: OpenSSL für TLS-Aufgaben installieren
+      ansible.builtin.apt:
+        name: openssl
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+      tags:
+        - tls
+
+    - name: TLS-Verzeichnis anlegen
+      ansible.builtin.file:
+        path: "{{ tls_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0700"
+      tags:
+        - tls
+
+    - name: Lokale Root-CA erzeugen
+      ansible.builtin.command: >-
+        openssl req -x509 -newkey rsa:4096 -sha256 -days 3650 -nodes
+        -keyout {{ tls_dir }}/root-ca.key
+        -out {{ tls_dir }}/root-ca.crt
+        -subj /CN=SKIP-Local-Root-CA
+        -addext basicConstraints=critical,CA:TRUE
+        -addext keyUsage=critical,keyCertSign,cRLSign
+        -addext subjectKeyIdentifier=hash
+      args:
+        creates: "{{ tls_dir }}/root-ca.crt"
+      tags:
+        - tls
+
+    - name: Root-CA-Schlüssel schützen
+      ansible.builtin.file:
+        path: "{{ tls_dir }}/root-ca.key"
+        owner: root
+        group: root
+        mode: "0600"
+      tags:
+        - tls
+
+    - name: Privaten Ingress-Schlüssel erzeugen
+      ansible.builtin.command: >-
+        openssl genrsa
+        -out {{ tls_dir }}/ingress.key
+        2048
+      args:
+        creates: "{{ tls_dir }}/ingress.key"
+      tags:
+        - tls
+
+    - name: Ingress-Schlüssel schützen
+      ansible.builtin.file:
+        path: "{{ tls_dir }}/ingress.key"
+        owner: root
+        group: root
+        mode: "0600"
+      tags:
+        - tls
+
+    - name: TLS-Erweiterungen mit den lokalen Hostnamen schreiben
+      ansible.builtin.copy:
+        dest: "{{ tls_dir }}/ingress.ext"
+        owner: root
+        group: root
+        mode: "0600"
+        content: |
+          authorityKeyIdentifier=keyid,issuer
+          basicConstraints=CA:FALSE
+          keyUsage=digitalSignature,keyEncipherment
+          extendedKeyUsage=serverAuth
+          subjectAltName=@alt_names
+
+          [alt_names]
+          DNS.1={{ harbor_host }}
+          DNS.2={{ argocd_host }}
+          DNS.3=*.{{ sslip_domain }}
+      register: tls_extensions
+      tags:
+        - tls
+
+    - name: Vorhandenes Ingress-Zertifikat prüfen
+      ansible.builtin.stat:
+        path: "{{ tls_dir }}/ingress.crt"
+      register: ingress_certificate_file
+      tags:
+        - tls
+
+    - name: Zertifikatsanfrage erzeugen
+      ansible.builtin.command: >-
+        openssl req -new
+        -key {{ tls_dir }}/ingress.key
+        -out {{ tls_dir }}/ingress.csr
+        -subj /CN=*.{{ sslip_domain }}
+      when: tls_extensions.changed or not ingress_certificate_file.stat.exists
+      tags:
+        - tls
+
+    - name: Ingress-Zertifikat mit der lokalen Root-CA signieren
+      ansible.builtin.command: >-
+        openssl x509 -req
+        -in {{ tls_dir }}/ingress.csr
+        -CA {{ tls_dir }}/root-ca.crt
+        -CAkey {{ tls_dir }}/root-ca.key
+        -CAserial {{ tls_dir }}/root-ca.srl
+        -CAcreateserial
+        -out {{ tls_dir }}/ingress.crt
+        -days 825
+        -sha256
+        -extfile {{ tls_dir }}/ingress.ext
+      when: tls_extensions.changed or not ingress_certificate_file.stat.exists
+      tags:
+        - tls
+
+    - name: Root-CA auf dem k3s-Server vertrauen
+      ansible.builtin.copy:
+        src: "{{ tls_dir }}/root-ca.crt"
+        dest: /usr/local/share/ca-certificates/skip-root-ca.crt
+        remote_src: true
+        owner: root
+        group: root
+        mode: "0644"
+      notify:
+        - Zertifikatsspeicher aktualisieren
+        - k3s neu starten
+      tags:
+        - tls
+
+    - name: Namespaces für die TLS-Secrets anlegen
+      ansible.builtin.shell: |
+        set -o pipefail
+        k3s kubectl create namespace "{{ item }}" --dry-run=client -o yaml |
+          k3s kubectl apply -f -
+      args:
+        executable: /bin/bash
+      loop:
+        - argocd
+        - harbor
+      register: namespace_result
+      changed_when: "'unchanged' not in namespace_result.stdout"
+      tags:
+        - tls
+
+    - name: TLS-Secret für Harbor und ArgoCD aktualisieren
+      ansible.builtin.shell: |
+        set -o pipefail
+        k3s kubectl create secret tls "{{ ingress_tls_secret }}" \
+          --namespace "{{ item }}" \
+          --cert "{{ tls_dir }}/ingress.crt" \
+          --key "{{ tls_dir }}/ingress.key" \
+          --dry-run=client -o yaml |
+          k3s kubectl apply -f -
+      args:
+        executable: /bin/bash
+      loop:
+        - argocd
+        - harbor
+      register: tls_secret_result
+      changed_when: "'unchanged' not in tls_secret_result.stdout"
+      tags:
+        - tls
+
+    - name: k3s-Vertrauen für die lokale Harbor-Registry konfigurieren
+      ansible.builtin.copy:
+        dest: /etc/rancher/k3s/registries.yaml
+        owner: root
+        group: root
+        mode: "0600"
+        content: |
+          mirrors:
+            "{{ harbor_host }}:30443":
+              endpoint:
+                - "https://{{ harbor_host }}:30443"
+          configs:
+            "{{ harbor_host }}:30443":
+              tls:
+                ca_file: /usr/local/share/ca-certificates/skip-root-ca.crt
+      notify:
+        - k3s neu starten
+      tags:
+        - tls
+
+    - name: Öffentliche Root-CA auf den Admin-Rechner holen
+      ansible.builtin.fetch:
+        src: "{{ tls_dir }}/root-ca.crt"
+        dest: "{{ playbook_dir }}/../certs/skip-root-ca.crt"
+        flat: true
+      tags:
+        - tls
+
+    # -------------------------------------------------------
+    # 4. kubeconfig verfügbar machen
     # -------------------------------------------------------
 
     - name: kubeconfig lokal für alle Admins zugänglich machen
@@ -125,7 +343,7 @@
         replace: "https://{{ k3s_server_ip }}:6443"
 
     # -------------------------------------------------------
-    # 4. Cluster-Status prüfen
+    # 5. Cluster-Status prüfen
     # -------------------------------------------------------
 
     - name: Node-Status prüfen
