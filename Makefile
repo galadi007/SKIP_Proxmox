@@ -10,15 +10,18 @@
 -include .env
 export
 
-SKIP_ENV ?= development
+SKIP_ENV ?= productive
 VALID_ENVS := productive development test
 
 # Zielserver: SSH-Alias (siehe ~/.ssh/config, Phase 2.3) und öffentliche IP.
 # Defaults entsprechen dem aktuellen FH-Server (gaming); für einen anderen
 # Zielhost beides in .env überschreiben. Für die Ingress-Hostnamen
 # (sslip.io) siehe apps/core/cluster-host/kustomization.yaml.
-SKIP_SSH_HOST ?= gaming
-SKIP_SERVER_IP ?= 172.17.204.135
+#SKIP_SSH_HOST ?= gaming
+#SKIP_SERVER_IP ?= 172.17.204.135
+
+SKIP_SSH_HOST ?= ubuntu@192.168.0.166
+SKIP_SERVER_IP ?= 192.168.0.166
 
 # Prüft, ob SKIP_ENV gesetzt und gültig ist
 check-env:

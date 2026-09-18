@@ -2,7 +2,7 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 # Zentrale Quelle für den öffentlichen Cluster-Host in sslip.io-Notation
-# (Punkte durch Bindestriche ersetzt: 172.17.204.135 -> 172-17-204-135).
+# (Punkte durch Bindestriche ersetzt: 172.17.204.135 -> 192-168-0-166).
 #
 # Wird von apps/core/argocd und apps/core/harbor per
 # `resources: [../cluster-host]` + `replacements` eingebunden, damit der
@@ -17,7 +17,7 @@ kind: Kustomization
 configMapGenerator:
   - name: skip-cluster-host
     literals:
-      - SERVER_HOST=172-17-204-135
+      - SERVER_HOST=192-168-0-166
 
 generatorOptions:
   disableNameSuffixHash: true

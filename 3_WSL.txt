@@ -9,3 +9,63 @@ ssh -o BatchMode=yes ubuntu@192.168.0.166 "whoami; hostname; hostname -I"
   
 Zeil ändern in argoCD -> core-apps.yaml   repoURL: https://github.com/galadi007/SKIP_Proxmox.git
 
+cd /mnt/c/Users/49176/projects/SKIP_Proxmox_Eigen_Repo
+
+das Repo wurde nur aus dem FH Repo rüberkopiert und .git gelöscht 
+
+git init
+git remote add origin https://github.com/galadi007/SKIP_Proxmox.git
+git fetch origin
+
+git branch -M main
+git reset --mixed origin/main
+git branch --set-upstream-to=origin/main main
+
+git status --short --branch
+git remote -v
+
+
+cd /mnt/c/Users/49176/projects/SKIP_Proxmox_Eigen_Repo
+
+git config user.name "Thomas Grugel"
+git config user.email "galadi007@users.noreply.github.com"
+
+if ! command -v gh >/dev/null 2>&1; then
+    sudo apt update
+    sudo apt install -y gh
+fi
+
+gh auth login --hostname github.com --git-protocol https --web
+
+ubuntu@LAPTOP-VHQIKBI9:/mnt/c/Users/49176/projects/SKIP_Proxmox_Eigen_Repo$ git remote -v
+origin  https://github.com/galadi007/SKIP_Proxmox.git (fetch)
+origin  https://github.com/galadi007/SKIP_Proxmox.git (push)
+ubuntu@LAPTOP-VHQIKBI9:/mnt/c/Users/49176/projects/SKIP_Proxmox_Eigen_Repo$ git remote get-url origin
+https://github.com/galadi007/SKIP_Proxmox.git
+
+
+cd /mnt/c/Users/49176/projects/SKIP_Proxmox_Eigen_Repo
+
+cp -f .env.example .env
+
+sed -i \
+  -e 's/^SKIP_ENV=.*/SKIP_ENV=development/' \
+  -e 's/^SKIP_SSH_HOST=.*/SKIP_SSH_HOST=ubuntu@192.168.0.166/' \
+  -e 's/^SKIP_SERVER_IP=.*/SKIP_SERVER_IP=192.168.0.166/' \
+  .env
+
+sed -i \
+  's|^gaming .*|skip ansible_host=192.168.0.166 ansible_user=ubuntu ansible_ssh_private_key_file=/home/ubuntu/.ssh/id_ed25519|' \
+  ansible/inventory.ini
+
+sed -i \
+  's|git@github.com:fhswf/PG-SKIP-Infrastructure.git|https://github.com/galadi007/SKIP_Proxmox.git|g' \
+  argocd/core/*.yaml
+
+sed -i \
+  -e 's/172-17-204-135/192-168-0-166/g' \
+  -e 's/192-168-0-165/192-168-0-166/g' \
+  apps/core/cluster-host/kustomization.yaml \
+  apps/core/argocd/ingressroute.yaml \
+  apps/core/harbor/ingressroute.yaml \
+  apps/core/harbor/helmrelease.yaml

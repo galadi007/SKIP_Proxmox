@@ -15,7 +15,7 @@ spec:
     # bewusst NICHT per Kustomize-Replacement generalisiert, da dieser Wert
     # Teil eines eingebetteten Helm-valuesContent-Strings ist und eine
     # generische String-Ersetzung dort zu fragil wäre.
-    externalURL: https://harbor.172-17-204-135.sslip.io:30443
+    externalURL: https://harbor.192-168-0-166.sslip.io:30443
 
     # --- Ingress ---
     expose:
