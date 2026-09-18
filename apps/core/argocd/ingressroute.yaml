@@ -5,6 +5,7 @@ metadata:
   namespace: argocd
 spec:
   entryPoints:
+    - web
     - websecure
   routes:
     - kind: Rule
@@ -12,5 +13,4 @@ spec:
       services:
         - name: argocd-server
           port: 80
-  tls:
-    secretName: skip-ingress-tls
+  tls: {}

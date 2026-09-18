@@ -1,10 +1,9 @@
+# Ansible
+ansible/inventory.ini
+
 # Kubernetes
 kubeconfig
-ansible/kubeconfig
 *.kubeconfig
-
-# Lokal erzeugte Zertifikate
-certs/
 
 # SSH Keys
 *.pem
@@ -23,7 +22,6 @@ secrets/
 *.tmp
 *.log
 *.bak
-*_org
 
 # OS
 .DS_Store
@@ -32,6 +30,6 @@ Thumbs.db
 # Claude
 .claude
 
-# Entwicklungsumgebungen
-.idea/
-.vscode/
+# Lokale Sicherungsarchive
+*.zip
+*.zip_*

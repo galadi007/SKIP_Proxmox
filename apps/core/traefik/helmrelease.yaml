@@ -7,7 +7,7 @@ spec:
   repo: https://helm.traefik.io/traefik
   chart: traefik
   targetNamespace: traefik
-  version: "33.2.1"        # bewusst gepinnt (Traefik v3)
+  version: "33.2.1"        # aktuelle stabile Version (Traefik v3)
   valuesContent: |-
     deployment:
       replicas: 1
@@ -17,9 +17,9 @@ spec:
 
     ports:
       web:
-        nodePort: 30080     # HTTP  → http://192.168.0.165:30080
+        nodePort: 30080     # HTTP  → http://172.17.204.135:30080
       websecure:
-        nodePort: 30443     # HTTPS → https://192.168.0.165:30443
+        nodePort: 30443     # HTTPS → https://172.17.204.135:30443
 
     ingressRoute:
       dashboard:

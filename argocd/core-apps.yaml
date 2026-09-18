@@ -1,15 +1,15 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: argocd
+  name: core-apps
   namespace: argocd
 spec:
   project: default
 
   source:
-    repoURL: git@github.com:fhswf/PG-SKIP-Infrastructure.git
+    repoURL: https://github.com/galadi007/SKIP_Proxmox.git
     targetRevision: main
-    path: apps/core/argocd
+    path: argocd/core
 
   destination:
     server: https://kubernetes.default.svc

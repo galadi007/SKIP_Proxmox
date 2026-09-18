@@ -1,0 +1,23 @@
+# Platzhalter-Modellkonfiguration.
+#
+# Es gibt im Infra-Cluster (noch) kein erreichbares Ollama-Backend
+# (im Gegensatz zu PG-SKIP-Platform, wo host.k3d.internal auf den lokalen
+# Docker-Host zeigte). Damit der Rollout unabhängig von Ollama funktioniert
+# und der Health-Check nicht wegen eines unerreichbaren Backends fehlschlägt,
+# antwortet das einzige konfigurierte Modell über `mock_response` — es wird
+# keine echte Model-Anfrage nach außen geschickt.
+#
+# Sobald Ollama im Cluster verfügbar ist: diesen Eintrag durch echte
+# `litellm_params` (model + api_base) ersetzen. Kein Cluster-Eingriff nötig,
+# nur dieser Commit.
+model_list:
+  - model_name: placeholder-model
+    litellm_params:
+      model: gpt-3.5-turbo
+      mock_response: "Placeholder-Antwort von LiteLLM – noch kein echtes Modell-Backend konfiguriert."
+
+litellm_settings:
+  drop_params: true
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY

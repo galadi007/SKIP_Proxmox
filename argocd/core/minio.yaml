@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: argocd
+  name: minio
   namespace: argocd
 spec:
   project: default
@@ -9,11 +9,11 @@ spec:
   source:
     repoURL: git@github.com:fhswf/PG-SKIP-Infrastructure.git
     targetRevision: main
-    path: apps/core/argocd
+    path: apps/services/minio
 
   destination:
     server: https://kubernetes.default.svc
-    namespace: argocd
+    namespace: minio
 
   syncPolicy:
     automated:

@@ -1,0 +1,21 @@
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: sealed-secrets
+  namespace: kube-system   # HelmChart CRD muss in kube-system liegen
+spec:
+  repo: https://bitnami.github.io/sealed-secrets
+  chart: sealed-secrets
+  targetNamespace: sealed-secrets
+  version: "2.20.0"        # Controller v0.40.0
+  valuesContent: |-
+    # Release-Name entspricht dem Chart-Namen -> Controller/Service heißen
+    # schlicht "sealed-secrets" im Namespace "sealed-secrets" (Default der
+    # Chart-Templates, kein nameOverride nötig).
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 250m
+        memory: 128Mi

@@ -1,0 +1,89 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: litellm
+  labels:
+    app.kubernetes.io/name: litellm
+    app.kubernetes.io/component: ai-gateway
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: litellm
+
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: litellm
+        app.kubernetes.io/component: ai-gateway
+
+    spec:
+      containers:
+        - name: litellm
+          image: ghcr.io/berriai/litellm:v1.90.3
+          imagePullPolicy: IfNotPresent
+
+          command:
+            - litellm
+
+          args:
+            - "--config"
+            - "/app/proxy_server_config.yaml"
+            - "--port"
+            - "4000"
+            - "--num_workers"
+            - "1"
+
+          ports:
+            - name: http
+              containerPort: 4000
+              protocol: TCP
+
+          envFrom:
+            - secretRef:
+                name: litellm-secret
+
+          volumeMounts:
+            - name: litellm-config
+              mountPath: /app/proxy_server_config.yaml
+              subPath: config.yaml
+              readOnly: true
+
+          startupProbe:
+            httpGet:
+              path: /health/liveliness
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 60
+
+          readinessProbe:
+            httpGet:
+              path: /health/readiness
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          livenessProbe:
+            httpGet:
+              path: /health/liveliness
+              port: http
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          resources:
+            requests:
+              cpu: 250m
+              memory: 1Gi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+
+      volumes:
+        - name: litellm-config
+          configMap:
+            name: litellm-config

@@ -1,0 +1,10 @@
+sudo apt update
+sudo apt install -y openssh-server qemu-guest-agent
+
+sudo systemctl enable --now ssh
+sudo systemctl enable --now qemu-guest-agent
+
+sudo ss -lntp | grep ':22'
+
+
+ssh ubuntu@192.168.0.166

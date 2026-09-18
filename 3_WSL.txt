@@ -1,0 +1,11 @@
+wsl -d Ubuntu
+
+ssh-copy-id \
+  -i ~/.ssh/id_ed25519.pub \
+  ubuntu@192.168.0.166
+  
+Test
+ssh -o BatchMode=yes ubuntu@192.168.0.166 "whoami; hostname; hostname -I"
+  
+Zeil ändern in argoCD -> core-apps.yaml   repoURL: https://github.com/galadi007/SKIP_Proxmox.git
+

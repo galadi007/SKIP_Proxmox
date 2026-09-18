@@ -7,10 +7,15 @@ spec:
   repo: https://helm.goharbor.io
   chart: harbor
   targetNamespace: harbor
-  version: "1.16.0"        # bewusst gepinnt; Harbor v2.12.x
+  version: "1.16.0"        # Harbor v2.11.x
   valuesContent: |-
     # --- Externe URL ---
-    externalURL: https://harbor.192-168-0-165.sslip.io:30443
+    # Host manuell synchron zu apps/core/cluster-host/kustomization.yaml
+    # halten (dort für die IngressRoute-Hosts zentral gepflegt) — hier
+    # bewusst NICHT per Kustomize-Replacement generalisiert, da dieser Wert
+    # Teil eines eingebetteten Helm-valuesContent-Strings ist und eine
+    # generische String-Ersetzung dort zu fragil wäre.
+    externalURL: https://harbor.172-17-204-135.sslip.io:30443
 
     # --- Ingress ---
     expose:

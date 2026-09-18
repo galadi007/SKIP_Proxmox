@@ -1,98 +1,87 @@
-SHELL := /bin/bash
+.PHONY: bootstrap kubeconfig test argocd-bootstrap argocd-password argocd-port-forward check-env
 
-SERVER_IP ?= 192.168.0.165
-SERVER_USER ?= ubuntu
-KUBECONFIG_FILE ?= $(CURDIR)/kubeconfig
-KUBECTL = KUBECONFIG=$(KUBECONFIG_FILE) kubectl
-ANSIBLE_ARGS ?=
-ARGOCD_VERSION ?= v3.4.4
-ARGOCD_INSTALL_URL ?= https://raw.githubusercontent.com/argoproj/argo-cd/$(ARGOCD_VERSION)/manifests/install.yaml
+# check-env ist aus technischen Gründen das erste Target in der Datei
+# (Variablen/Validierung müssen vor den anderen Targets stehen) und würde
+# damit sonst zum impliziten Default-Goal von `make` werden. bootstrap
+# bleibt das eigentliche Default-Goal.
+.DEFAULT_GOAL := bootstrap
 
-.PHONY: bootstrap tls kubeconfig test argocd-bootstrap deploy wait-core status \
-	argocd-password argocd-ui urls
+# .env einbinden (steuert per SKIP_ENV, welche Umgebung installiert wird)
+-include .env
+export
 
-# Ubuntu vorbereiten, k3s installieren und die lokale TLS-CA erzeugen.
-bootstrap:
-	bash ./bootstrap.sh $(ANSIBLE_ARGS)
+SKIP_ENV ?= development
+VALID_ENVS := productive development test
 
-# Nur Zertifikate, TLS-Secrets und Harbor-Vertrauen auf einem bestehenden Cluster aktualisieren.
-tls:
-	ansible-playbook -i ansible/inventory.ini ansible/site.yml --tags tls $(ANSIBLE_ARGS)
+# Zielserver: SSH-Alias (siehe ~/.ssh/config, Phase 2.3) und öffentliche IP.
+# Defaults entsprechen dem aktuellen FH-Server (gaming); für einen anderen
+# Zielhost beides in .env überschreiben. Für die Ingress-Hostnamen
+# (sslip.io) siehe apps/core/cluster-host/kustomization.yaml.
+SKIP_SSH_HOST ?= gaming
+SKIP_SERVER_IP ?= 172.17.204.135
 
-# kubeconfig erneut vom Server holen. Das vollständige Bootstrap erledigt dies bereits automatisch.
-kubeconfig:
-	@test ! -d "$(KUBECONFIG_FILE)" || \
-	  (echo "Fehler: $(KUBECONFIG_FILE) ist ein Verzeichnis." >&2; exit 1)
-	scp "$(SERVER_USER)@$(SERVER_IP):/etc/rancher/k3s/k3s.yaml" "$(KUBECONFIG_FILE)"
-	sed -i 's/127.0.0.1/$(SERVER_IP)/g' "$(KUBECONFIG_FILE)"
-	chmod 600 "$(KUBECONFIG_FILE)"
-	@echo "kubeconfig gespeichert: $(KUBECONFIG_FILE)"
+# Prüft, ob SKIP_ENV gesetzt und gültig ist
+check-env:
+ifeq ($(filter $(SKIP_ENV),$(VALID_ENVS)),)
+	$(error Ungültiger SKIP_ENV-Wert '$(SKIP_ENV)'. Erlaubt: $(VALID_ENVS). Siehe .env.example)
+endif
+	@echo ">> SKIP_ENV=$(SKIP_ENV)"
 
-# Cluster-Verbindung prüfen.
-test:
-	$(KUBECTL) get nodes
+# k3s auf dem Server installieren (via Ansible)
+# development: kein eigener Server-Bootstrap nötig, bestehender Server wird genutzt
+bootstrap: check-env
+ifeq ($(SKIP_ENV),development)
+	@echo "SKIP_ENV=development: Ansible-Provisioning wird übersprungen (bestehender Server wird verwendet)."
+else
+	./bootstrap.sh
+endif
 
-# ArgoCD installieren und das App-of-Apps-Manifest initial anwenden.
-argocd-bootstrap:
-	$(KUBECTL) create namespace argocd --dry-run=client -o yaml | \
-	  $(KUBECTL) apply -f -
-	$(KUBECTL) apply -n argocd \
-	  -f "$(ARGOCD_INSTALL_URL)" \
+# kubeconfig vom Server holen und lokal verfügbar machen
+kubeconfig: check-env
+	scp $(SKIP_SSH_HOST):/etc/rancher/k3s/k3s.yaml ./kubeconfig
+	sed -i 's/127.0.0.1/$(SKIP_SERVER_IP)/g' ./kubeconfig
+	@echo "kubeconfig gespeichert. Aktivieren mit:"
+	@echo "  export KUBECONFIG=\$$(pwd)/kubeconfig"
+
+# Cluster-Verbindung prüfen
+test: check-env
+	KUBECONFIG=./kubeconfig kubectl get nodes
+
+# ArgoCD + GitOps-Applications installieren
+argocd-bootstrap: check-env
+	KUBECONFIG=./kubeconfig kubectl create namespace argocd --dry-run=client -o yaml | \
+	  KUBECONFIG=./kubeconfig kubectl apply -f -
+	KUBECONFIG=./kubeconfig kubectl apply -n argocd \
+	  -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml \
 	  --server-side
-	@echo "Warte, bis ArgoCD bereit ist ..."
-	$(KUBECTL) wait --for=condition=available \
+	@echo "Warte bis ArgoCD bereit ist..."
+	KUBECONFIG=./kubeconfig kubectl wait --for=condition=available \
 	  deployment/argocd-server -n argocd --timeout=300s
-	$(KUBECTL) apply -f argocd/app-of-apps.yaml
-	$(KUBECTL) annotate application app-of-apps -n argocd \
-	  argocd.argoproj.io/refresh=hard --overwrite
-	$(MAKE) wait-core
-	@echo "ArgoCD Bootstrap abgeschlossen."
+	KUBECONFIG=./kubeconfig kubectl apply -f argocd/
 
-# Änderungen nach einem Git-Push in den bestehenden Cluster übernehmen.
-deploy:
-	$(KUBECTL) apply -f argocd/app-of-apps.yaml
-	$(KUBECTL) annotate application app-of-apps -n argocd \
-	  argocd.argoproj.io/refresh=hard --overwrite
-	$(MAKE) wait-core
+	@echo "Warte, bis die ArgoCD-Application synchronisiert ist..."
+	KUBECONFIG=./kubeconfig kubectl wait \
+	  --for=jsonpath='{.status.sync.status}'=Synced \
+	  application/core-apps -n argocd --timeout=300s
 
-# Auf alle Core-Applications warten und ArgoCD für server.insecure neu starten.
-wait-core:
-	@for app in traefik harbor argocd; do \
-	  echo "Warte auf $$app ..."; \
-	  for attempt in $$(seq 1 120); do \
-	    state="$$( $(KUBECTL) get application "$$app" -n argocd \
-	      -o jsonpath='{.status.sync.status}/{.status.health.status}' 2>/dev/null || true )"; \
-	    if [[ "$$state" == "Synced/Healthy" ]]; then \
-	      echo "$$app: $$state"; \
-	      break; \
-	    fi; \
-	    if [[ "$$attempt" -eq 120 ]]; then \
-	      echo "Timeout bei $$app, letzter Status: $${state:-nicht vorhanden}" >&2; \
-	      exit 1; \
-	    fi; \
-	    sleep 5; \
-	  done; \
-	done
-	$(KUBECTL) rollout restart deployment/argocd-server -n argocd
-	$(KUBECTL) rollout status deployment/argocd-server -n argocd --timeout=180s
+	KUBECONFIG=./kubeconfig kubectl rollout restart \
+	  deployment/argocd-server -n argocd
 
-# Kompakte Zustandsübersicht.
-status:
-	$(KUBECTL) get applications -n argocd
-	$(KUBECTL) get pods -A
-	$(KUBECTL) get ingressroute.traefik.io -A
+	KUBECONFIG=./kubeconfig kubectl rollout status \
+	  deployment/argocd-server -n argocd --timeout=300s
 
-# Initiales ArgoCD-Admin-Passwort anzeigen.
+	@echo ""
+	@echo "=== ArgoCD Bootstrap abgeschlossen ==="
+	@echo "Cluster ist jetzt GitOps-fähig."
+	@echo "Passwort abrufen: make argocd-password"
+
+# ArgoCD Admin-Passwort anzeigen
 argocd-password:
-	@$(KUBECTL) -n argocd get secret argocd-initial-admin-secret \
-	  -o jsonpath='{.data.password}' | base64 -d
-	@echo
+	@KUBECONFIG=./kubeconfig kubectl -n argocd get secret argocd-initial-admin-secret \
+	  -o jsonpath="{.data.password}" | base64 -d
+	@echo ""
 
-# Port-Forward als Fallback zur direkten Ingress-Adresse.
-argocd-ui:
-	@echo "ArgoCD UI: http://localhost:8080 (User: admin)"
-	$(KUBECTL) port-forward svc/argocd-server -n argocd 8080:80
-
-urls:
-	@echo "ArgoCD: https://argocd.192-168-0-165.sslip.io:30443"
-	@echo "Harbor: https://harbor.192-168-0-165.sslip.io:30443"
+# ArgoCD Web UI per Port-Forward öffnen (Debug/Fallback)
+argocd-port-forward:
+	@echo "ArgoCD UI: http://localhost:8080  (User: admin)"
+	KUBECONFIG=./kubeconfig kubectl port-forward svc/argocd-server -n argocd 8080:80

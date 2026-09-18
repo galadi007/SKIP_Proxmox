@@ -5,12 +5,37 @@ metadata:
   namespace: harbor
 spec:
   entryPoints:
+    - web
     - websecure
   routes:
-    - match: Host(`harbor.192-168-0-165.sslip.io`)
+    - match: Host(`harbor.172-17-204-135.sslip.io`) && PathPrefix(`/api/`)
       kind: Rule
+      priority: 100
       services:
-        - name: harbor
+        - name: harbor-core
           port: 80
-  tls:
-    secretName: skip-ingress-tls
+    - match: Host(`harbor.172-17-204-135.sslip.io`) && PathPrefix(`/service/`)
+      kind: Rule
+      priority: 100
+      services:
+        - name: harbor-core
+          port: 80
+    - match: Host(`harbor.172-17-204-135.sslip.io`) && PathPrefix(`/v2/`)
+      kind: Rule
+      priority: 100
+      services:
+        - name: harbor-core
+          port: 80
+    - match: Host(`harbor.172-17-204-135.sslip.io`) && PathPrefix(`/c/`)
+      kind: Rule
+      priority: 100
+      services:
+        - name: harbor-core
+          port: 80
+    - match: Host(`harbor.172-17-204-135.sslip.io`)
+      kind: Rule
+      priority: 10
+      services:
+        - name: harbor-portal
+          port: 80
+  tls: {}

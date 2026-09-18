@@ -3,13 +3,11 @@ kind: Application
 metadata:
   name: traefik
   namespace: argocd
-  annotations:
-    argocd.argoproj.io/sync-wave: "-2"
 spec:
   project: default
 
   source:
-    repoURL: https://github.com/galadi007/SKIP_Proxmox.git
+    repoURL: git@github.com:fhswf/PG-SKIP-Infrastructure.git
     targetRevision: main
     path: apps/core/traefik
 
@@ -21,13 +19,5 @@ spec:
     automated:
       prune: true
       selfHeal: true
-    retry:
-      limit: 10
-      backoff:
-        duration: 5s
-        factor: 2
-        maxDuration: 3m
     syncOptions:
       - CreateNamespace=true
-      - ApplyOutOfSyncOnly=true
-      - PruneLast=true
