@@ -1,0 +1,13 @@
+---
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  name: sealed-demo
+  namespace: sealed-secrets
+spec:
+  encryptedData:
+    message: AgCwKPjyN7nOwyXGkQk9JUmj9NZ9Ayg6uvUdBV81qxBj32UPh7bKzmm/qjg0JQTBN0X8k0fA7y7+n3sG7Y7xzaSWtqbLCOMqgc6V9pJ4Clnv89qwdpzzDXOuv1O9flsKeOk83ZUaKTyBvdft9qQcyU/uJoHpSeDfNxAb6YltdRp7zQuOOjEMdtEDMTSaOx45yWCFDqbFJJC81kS1wM+oHN8kYUNkcB2F5wzg1A10fYRanL0Wv9PmD81SOuLB33L+AdFxIXeHgra2DesT73PryM4JlZKJjyUSEBgDgqYwlMMyq9q4ExSDFOpb+OPVIRwy6I6oFhwHqgUiSRQ39fVPM7KThAK1mbrZ6JJoW4e6BwORNFk5Jqvp1Ho32l5X5EWwJ+ftKWyfvpjKANkjyN22BNbRDyUtoZ4ntCPL8ChGeYU+cFirem0BNsE4ygdk5eXeB2j1Kt6iVVwu3cEvVUhITEhUTOtJJtJR17X6a7TlzIHcId1bK0q0HFXxGstZpmtUuBT522DBd/Fe6L/8QRbn3pZm/6iOah63/bAcFIsV/Pm1wJ838KVnIOuhXSeegQKtyVc0dQJJjwDBiMKTN5vs9iwnKF6wteDs+1ruIBulmQOyvPMoqygoolnNO1qeguYGfuXOLZnQj6UL9qm35cspig7jkgymDrtZA1Wg0G+3fTOZE13rXoUTXHr8RFCyZU2uEdBfUNakSyZyJul8f4c8scvaeuNf2g==
+  template:
+    metadata:
+      name: sealed-demo
+      namespace: sealed-secrets
