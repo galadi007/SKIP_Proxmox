@@ -1,0 +1,5 @@
+varReference:
+  - path: spec/routes/match
+    kind: IngressRoute
+  - path: spec/valuesContent
+    kind: HelmChart

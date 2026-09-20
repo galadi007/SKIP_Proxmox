@@ -6,17 +6,14 @@ resources:
   - configmap.yaml
   - ingressroute.yaml
 
-replacements:
-  - source:
+vars:
+  - name: SKIP_BASE_DOMAIN
+    objref:
+      apiVersion: v1
       kind: ConfigMap
       name: skip-cluster-settings
-      fieldPath: data.SKIP_BASE_DOMAIN
-    targets:
-      - select:
-          kind: IngressRoute
-          name: argocd
-        fieldPaths:
-          - spec.routes.0.match
-        options:
-          delimiter: "@@"
-          index: 1
+    fieldref:
+      fieldpath: data.SKIP_BASE_DOMAIN
+
+configurations:
+  - varreference.yaml

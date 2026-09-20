@@ -10,8 +10,8 @@ spec:
   version: "1.16.0"        # Harbor v2.11.x
   valuesContent: |-
     # --- Externe URL ---
-    # Die Basisdomain wird durch Kustomize aus skip-settings.conf eingesetzt.
-    externalURL: https://harbor.@@SKIP_BASE_DOMAIN@@
+    # Die Basisdomain wird durch Kustomize aus ../cluster-host eingesetzt.
+    externalURL: https://harbor.$(SKIP_BASE_DOMAIN)
 
     # --- Ingress ---
     expose:
