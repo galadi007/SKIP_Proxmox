@@ -6,7 +6,7 @@ kind: Kustomization
 configMapGenerator:
   - name: skip-cluster-settings
     literals:
-      - SKIP_BASE_DOMAIN=fh-swf-skip
+      - SKIP_BASE_DOMAIN=192-168-0-166.sslip.io
 
 generatorOptions:
   disableNameSuffixHash: true
