@@ -18,21 +18,18 @@ Die Datei enthält:
 SKIP_ENV=productive
 SKIP_REPOSITORY_URL=<Git-Repository>
 SKIP_SERVER_IP=<Server-IP>
-SKIP_BASE_DOMAIN=<Server-IP-mit-Bindestrichen>.sslip.io
-SKIP_HTTPS_PORT=30443
 SKIP_SSH_USER=<SSH-Benutzer>
 SKIP_SSH_PRIVATE_KEY_FILE=<Pfad-zum-privaten-Schlüssel>
 ```
 
-Bei einem Wechsel des Servers oder Repositorys wird diese zentrale Datei
-angepasst. `SKIP_SERVER_IP` enthält die normale IP-Adresse, während
-`SKIP_BASE_DOMAIN` dieselbe IP mit Bindestrichen für `sslip.io` enthält.
+Bei einem Wechsel des Servers oder Repositorys wird nur diese Datei geändert.
+Konkrete Werte werden nicht in weiteren Manifesten wiederholt.
 
-Die externen Webadressen werden aus Basisdomain und HTTPS-NodePort gebildet:
+Die externen Hostnamen werden aus `SKIP_SERVER_IP` gebildet:
 
 ```text
-https://argocd.<SKIP_BASE_DOMAIN>:<SKIP_HTTPS_PORT>
-https://harbor.<SKIP_BASE_DOMAIN>:<SKIP_HTTPS_PORT>
+https://argocd.<SKIP_SERVER_IP>.sslip.io
+https://harbor.<SKIP_SERVER_IP>.sslip.io
 ```
 
 `sslip.io` löst die eingebettete IP automatisch auf. Ein eigener DNS- oder
@@ -44,7 +41,7 @@ Hosts-Eintrag ist nicht notwendig.
 |---|---|---|
 | ArgoCD | `apps/core/argocd` | HTTPS über Traefik |
 | Harbor | `apps/core/harbor` | HTTPS über Traefik |
-| Traefik | `apps/core/traefik` | NodePorts 30080 und 30443 |
+| Traefik | `apps/core/traefik` | Host-Ports 80 und 443 |
 | Sealed Secrets | `apps/core/sealed-secrets` | clusterintern |
 | LiteLLM | `apps/services/litellm` | clusterintern |
 | MinIO | `apps/services/minio` | clusterintern |
@@ -129,8 +126,8 @@ Nach dem Laden der Konfiguration:
 ```bash
 source apps/core/cluster-host/skip-settings.conf
 
-ARGOCD_URL="https://argocd.${SKIP_BASE_DOMAIN}:${SKIP_HTTPS_PORT}"
-HARBOR_URL="https://harbor.${SKIP_BASE_DOMAIN}:${SKIP_HTTPS_PORT}"
+ARGOCD_URL="https://argocd.${SKIP_SERVER_IP}.sslip.io"
+HARBOR_URL="https://harbor.${SKIP_SERVER_IP}.sslip.io"
 
 printf '%s\n' "$ARGOCD_URL" "$HARBOR_URL"
 ```

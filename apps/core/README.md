@@ -7,7 +7,7 @@ entspricht einer erzeugten ArgoCD-`Application`.
 | Ordner | Komponente | ArgoCD-Application |
 |---|---|---|
 | `argocd/` | ArgoCD verwaltet sich selbst (Ingress, `server.insecure`-ConfigMap) | `argocd` |
-| `traefik/` | Ingress Controller (NodePorts 30080/30443) | `traefik` |
+| `traefik/` | Ingress Controller (Host-Ports 80/443) | `traefik` |
 | `harbor/` | Container Registry | `harbor` |
 | `sealed-secrets/` | Secrets-Verschlüsselung für GitOps (Bitnami Sealed Secrets) | `sealed-secrets` |
 | `cluster-host/` | zentrale `skip-settings.conf` für Repository, Server und externe URLs — keine eigene ArgoCD-Application | – |

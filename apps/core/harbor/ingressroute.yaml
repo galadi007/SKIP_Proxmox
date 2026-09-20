@@ -8,31 +8,31 @@ spec:
     - web
     - websecure
   routes:
-    - match: Host(`harbor.$(SKIP_BASE_DOMAIN)`) && PathPrefix(`/api/`)
+    - match: Host(`harbor.$(SKIP_SERVER_IP).sslip.io`) && PathPrefix(`/api/`)
       kind: Rule
       priority: 100
       services:
         - name: harbor-core
           port: 80
-    - match: Host(`harbor.$(SKIP_BASE_DOMAIN)`) && PathPrefix(`/service/`)
+    - match: Host(`harbor.$(SKIP_SERVER_IP).sslip.io`) && PathPrefix(`/service/`)
       kind: Rule
       priority: 100
       services:
         - name: harbor-core
           port: 80
-    - match: Host(`harbor.$(SKIP_BASE_DOMAIN)`) && PathPrefix(`/v2/`)
+    - match: Host(`harbor.$(SKIP_SERVER_IP).sslip.io`) && PathPrefix(`/v2/`)
       kind: Rule
       priority: 100
       services:
         - name: harbor-core
           port: 80
-    - match: Host(`harbor.$(SKIP_BASE_DOMAIN)`) && PathPrefix(`/c/`)
+    - match: Host(`harbor.$(SKIP_SERVER_IP).sslip.io`) && PathPrefix(`/c/`)
       kind: Rule
       priority: 100
       services:
         - name: harbor-core
           port: 80
-    - match: Host(`harbor.$(SKIP_BASE_DOMAIN)`)
+    - match: Host(`harbor.$(SKIP_SERVER_IP).sslip.io`)
       kind: Rule
       priority: 10
       services:

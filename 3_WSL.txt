@@ -37,5 +37,5 @@ export KUBECONFIG="$(pwd)/kubeconfig"
 make argocd-bootstrap
 
 # Abgeleitete Webadressen anzeigen
-printf 'ArgoCD: https://argocd.%s:%s\n' "$SKIP_BASE_DOMAIN" "$SKIP_HTTPS_PORT"
-printf 'Harbor: https://harbor.%s:%s\n' "$SKIP_BASE_DOMAIN" "$SKIP_HTTPS_PORT"
+printf 'ArgoCD: https://argocd.%s.sslip.io\n' "$SKIP_SERVER_IP"
+printf 'Harbor: https://harbor.%s.sslip.io\n' "$SKIP_SERVER_IP"

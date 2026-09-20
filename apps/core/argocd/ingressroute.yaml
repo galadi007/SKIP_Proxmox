@@ -9,7 +9,7 @@ spec:
     - websecure
   routes:
     - kind: Rule
-      match: Host(`argocd.$(SKIP_BASE_DOMAIN)`)
+      match: Host(`argocd.$(SKIP_SERVER_IP).sslip.io`)
       services:
         - name: argocd-server
           port: 80
