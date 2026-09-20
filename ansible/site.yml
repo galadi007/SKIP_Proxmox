@@ -1,6 +1,6 @@
 ---
 # SKIP Infrastructure – Ansible Playbook
-# Ziel: Single-Node k3s Cluster auf Ubuntu 24.04 (gaming, 172.17.204.135)
+# Ziel: Single-Node-k3s-Cluster auf Ubuntu 24.04.
 #
 # Ausführen via:
 #   make bootstrap

@@ -1,23 +1,12 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-# Zentrale Quelle für den öffentlichen Cluster-Host in sslip.io-Notation
-# (Punkte durch Bindestriche ersetzt: 172.17.204.135 -> 192-168-0-166).
-#
-# Wird von apps/core/argocd und apps/core/harbor per
-# `resources: [../cluster-host]` + `replacements` eingebunden, damit der
-# Host für IngressRoute-Hostnamen nicht an mehreren Stellen einzeln gepflegt
-# werden muss. Bei einem Wechsel des Zielservers NUR HIER den Wert ändern.
-#
-# Nicht abgedeckt: `externalURL` in apps/core/harbor/helmrelease.yaml (Teil
-# eines eingebetteten Helm-`valuesContent`-Strings) — dort würde eine
-# generische String-Ersetzung zu fragil (jeder weitere Punkt im YAML-Block,
-# z. B. eine Dezimalzahl, würde die Ersetzung treffen). Dieser Wert bleibt
-# bewusst hartcodiert und manuell synchron zu halten, siehe Kommentar dort.
+# Zentrale Basisdomain für alle externen Webadressen. Bei einem Wechsel nur
+# den folgenden Wert ändern.
 configMapGenerator:
-  - name: skip-cluster-host
+  - name: skip-cluster-settings
     literals:
-      - SERVER_HOST=192-168-0-166
+      - SKIP_BASE_DOMAIN=fh-swf-skip
 
 generatorOptions:
   disableNameSuffixHash: true

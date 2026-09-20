@@ -9,8 +9,8 @@ resources:
 replacements:
   - source:
       kind: ConfigMap
-      name: skip-cluster-host
-      fieldPath: data.SERVER_HOST
+      name: skip-cluster-settings
+      fieldPath: data.SKIP_BASE_DOMAIN
     targets:
       - select:
           kind: IngressRoute
@@ -18,5 +18,5 @@ replacements:
         fieldPaths:
           - spec.routes.0.match
         options:
-          delimiter: "."
+          delimiter: "@@"
           index: 1

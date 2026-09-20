@@ -1,0 +1,54 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: core-apps
+  namespace: argocd
+spec:
+  generators:
+    - list:
+        elements:
+          - name: core-apps
+            path: .
+            namespace: argocd
+          - name: argocd
+            path: apps/core/argocd
+            namespace: argocd
+          - name: harbor
+            path: apps/core/harbor
+            namespace: harbor
+          - name: litellm
+            path: apps/services/litellm
+            namespace: litellm
+          - name: minio
+            path: apps/services/minio
+            namespace: minio
+          - name: sealed-secrets
+            path: apps/core/sealed-secrets
+            namespace: sealed-secrets
+          - name: traefik
+            path: apps/core/traefik
+            namespace: traefik
+
+  template:
+    metadata:
+      name: '{{name}}'
+      namespace: argocd
+    spec:
+      project: default
+
+      # Wird durch die Root-Kustomization aus skip-settings.conf eingesetzt.
+      source:
+        repoURL: REPLACED_BY_KUSTOMIZE
+        targetRevision: main
+        path: '{{path}}'
+
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: '{{namespace}}'
+
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true

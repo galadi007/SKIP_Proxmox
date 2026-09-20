@@ -10,12 +10,8 @@ spec:
   version: "1.16.0"        # Harbor v2.11.x
   valuesContent: |-
     # --- Externe URL ---
-    # Host manuell synchron zu apps/core/cluster-host/kustomization.yaml
-    # halten (dort für die IngressRoute-Hosts zentral gepflegt) — hier
-    # bewusst NICHT per Kustomize-Replacement generalisiert, da dieser Wert
-    # Teil eines eingebetteten Helm-valuesContent-Strings ist und eine
-    # generische String-Ersetzung dort zu fragil wäre.
-    externalURL: https://harbor.192-168-0-166.sslip.io:30443
+    # Die Basisdomain wird durch Kustomize aus skip-settings.conf eingesetzt.
+    externalURL: https://harbor.@@SKIP_BASE_DOMAIN@@
 
     # --- Ingress ---
     expose:

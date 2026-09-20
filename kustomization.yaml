@@ -1,0 +1,30 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - argocd/applicationset.yaml
+
+configMapGenerator:
+  - name: skip-settings
+    namespace: argocd
+    envs:
+      - skip-settings.conf
+
+generatorOptions:
+  disableNameSuffixHash: true
+
+# Setzt die zentrale Repository-URL in die Vorlage, aus der das
+# ApplicationSet sämtliche ArgoCD-Applications erzeugt.
+replacements:
+  - source:
+      kind: ConfigMap
+      name: skip-settings
+      fieldPath: data.SKIP_REPOSITORY_URL
+    targets:
+      - select:
+          group: argoproj.io
+          version: v1alpha1
+          kind: ApplicationSet
+          name: core-apps
+        fieldPaths:
+          - spec.template.spec.source.repoURL

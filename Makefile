@@ -1,4 +1,4 @@
-.PHONY: bootstrap kubeconfig test argocd-bootstrap argocd-password argocd-port-forward check-env
+.PHONY: bootstrap kubeconfig test git-remote argocd-bootstrap argocd-password argocd-port-forward check-env
 
 # check-env ist aus technischen Gründen das erste Target in der Datei
 # (Variablen/Validierung müssen vor den anderen Targets stehen) und würde
@@ -6,22 +6,15 @@
 # bleibt das eigentliche Default-Goal.
 .DEFAULT_GOAL := bootstrap
 
-# .env einbinden (steuert per SKIP_ENV, welche Umgebung installiert wird)
+# Zentrale Projektkonfiguration und optionale lokale Abweichungen einbinden.
+include skip-settings.conf
 -include .env
 export
 
-SKIP_ENV ?= productive
 VALID_ENVS := productive development test
 
-# Zielserver: SSH-Alias (siehe ~/.ssh/config, Phase 2.3) und öffentliche IP.
-# Defaults entsprechen dem aktuellen FH-Server (gaming); für einen anderen
-# Zielhost beides in .env überschreiben. Für die Ingress-Hostnamen
-# (sslip.io) siehe apps/core/cluster-host/kustomization.yaml.
-#SKIP_SSH_HOST ?= gaming
-#SKIP_SERVER_IP ?= 172.17.204.135
-
-SKIP_SSH_HOST ?= ubuntu@192.168.0.166
-SKIP_SERVER_IP ?= 192.168.0.166
+# Wird aus Benutzer und IP der zentralen Konfiguration abgeleitet.
+SKIP_SSH_HOST = $(SKIP_SSH_USER)@$(SKIP_SERVER_IP)
 
 # Prüft, ob SKIP_ENV gesetzt und gültig ist
 check-env:
@@ -41,7 +34,7 @@ endif
 
 # kubeconfig vom Server holen und lokal verfügbar machen
 kubeconfig: check-env
-	scp $(SKIP_SSH_HOST):/etc/rancher/k3s/k3s.yaml ./kubeconfig
+	scp -i $(SKIP_SSH_PRIVATE_KEY_FILE) $(SKIP_SSH_HOST):/etc/rancher/k3s/k3s.yaml ./kubeconfig
 	sed -i 's/127.0.0.1/$(SKIP_SERVER_IP)/g' ./kubeconfig
 	@echo "kubeconfig gespeichert. Aktivieren mit:"
 	@echo "  export KUBECONFIG=\$$(pwd)/kubeconfig"
@@ -49,6 +42,11 @@ kubeconfig: check-env
 # Cluster-Verbindung prüfen
 test: check-env
 	KUBECONFIG=./kubeconfig kubectl get nodes
+
+# Lokalen Git-Remote mit der zentral konfigurierten Repository-URL abgleichen
+git-remote: check-env
+	git remote set-url origin "$(SKIP_REPOSITORY_URL)"
+	@echo "Git-Remote origin: $$(git remote get-url origin)"
 
 # ArgoCD + GitOps-Applications installieren
 argocd-bootstrap: check-env
@@ -60,7 +58,11 @@ argocd-bootstrap: check-env
 	@echo "Warte bis ArgoCD bereit ist..."
 	KUBECONFIG=./kubeconfig kubectl wait --for=condition=available \
 	  deployment/argocd-server -n argocd --timeout=300s
-	KUBECONFIG=./kubeconfig kubectl apply -f argocd/
+	KUBECONFIG=./kubeconfig kubectl apply -k .
+
+	@echo "Warte, bis das ApplicationSet die Applications erzeugt hat..."
+	KUBECONFIG=./kubeconfig kubectl wait \
+	  --for=create application/core-apps -n argocd --timeout=120s
 
 	@echo "Warte, bis die ArgoCD-Application synchronisiert ist..."
 	KUBECONFIG=./kubeconfig kubectl wait \

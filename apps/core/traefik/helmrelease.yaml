@@ -13,13 +13,15 @@ spec:
       replicas: 1
 
     service:
-      type: NodePort
+      type: ClusterIP
 
+    # Traefik lauscht auf dem Single-Node-Host direkt auf den Standardports.
+    # Deshalb benötigen die externen URLs keine Portangabe.
     ports:
       web:
-        nodePort: 30080     # HTTP  → http://172.17.204.135:30080
+        hostPort: 80
       websecure:
-        nodePort: 30443     # HTTPS → https://172.17.204.135:30443
+        hostPort: 443
 
     ingressRoute:
       dashboard:
