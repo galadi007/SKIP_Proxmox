@@ -10,8 +10,8 @@ spec:
   version: "1.16.0"        # Harbor v2.11.x
   valuesContent: |-
     # --- Externe URL ---
-    # Die Server-IP wird durch Kustomize aus der zentralen Konfiguration eingesetzt.
-    externalURL: https://harbor.$(SKIP_SERVER_IP).sslip.io
+    # Basisdomain und HTTPS-NodePort kommen aus der zentralen Konfiguration.
+    externalURL: https://harbor.$(SKIP_BASE_DOMAIN):$(SKIP_HTTPS_PORT)
 
     # --- Ingress ---
     expose:

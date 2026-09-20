@@ -7,13 +7,13 @@ resources:
   - ingressroute.yaml
 
 vars:
-  - name: SKIP_SERVER_IP
+  - name: SKIP_BASE_DOMAIN
     objref:
       apiVersion: v1
       kind: ConfigMap
       name: skip-cluster-settings
     fieldref:
-      fieldpath: data.SKIP_SERVER_IP
+      fieldpath: data.SKIP_BASE_DOMAIN
 
 configurations:
   - varreference.yaml
