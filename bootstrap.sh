@@ -5,7 +5,7 @@ REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Zentrale Konfiguration laden. Eine lokale .env darf Werte überschreiben.
 set -a
-source "${REPO_DIR}/skip-settings.conf"
+source "${REPO_DIR}/apps/core/cluster-host/skip-settings.conf"
 if [[ -f "${REPO_DIR}/.env" ]]; then
   source "${REPO_DIR}/.env"
 fi

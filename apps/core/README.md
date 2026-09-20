@@ -10,7 +10,7 @@ entspricht einer erzeugten ArgoCD-`Application`.
 | `traefik/` | Ingress Controller (Host-Ports 80/443) | `traefik` |
 | `harbor/` | Container Registry | `harbor` |
 | `sealed-secrets/` | Secrets-Verschlüsselung für GitOps (Bitnami Sealed Secrets) | `sealed-secrets` |
-| `cluster-host/` | zentrale Basisdomain für `argocd/` und `harbor/` — keine eigene ArgoCD-Application | – |
+| `cluster-host/` | zentrale `skip-settings.conf` für Repository, Server und externe URLs — keine eigene ArgoCD-Application | – |
 
 Details je Komponente: siehe Haupt-`README.md` im Repo-Root (Phasen 7–9) und
 die jeweiligen Manifeste.

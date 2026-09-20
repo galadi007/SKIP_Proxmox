@@ -1,12 +1,12 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-# Zentrale Basisdomain für alle externen Webadressen. Bei einem Wechsel nur
-# den folgenden Wert ändern.
+# Stellt dieselbe zentrale Konfiguration für die getrennt gerenderten
+# ArgoCD- und Harbor-Kustomizations bereit.
 configMapGenerator:
   - name: skip-cluster-settings
-    literals:
-      - SKIP_BASE_DOMAIN=192-168-0-166.sslip.io
+    envs:
+      - skip-settings.conf
 
 generatorOptions:
   disableNameSuffixHash: true

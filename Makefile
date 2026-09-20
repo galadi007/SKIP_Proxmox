@@ -7,7 +7,7 @@
 .DEFAULT_GOAL := bootstrap
 
 # Zentrale Projektkonfiguration und optionale lokale Abweichungen einbinden.
-include skip-settings.conf
+include apps/core/cluster-host/skip-settings.conf
 -include .env
 export
 

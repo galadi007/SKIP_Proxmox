@@ -1,3 +1,4 @@
+# Auf der Ubuntu-VM ausführen
 sudo apt update
 sudo apt install -y openssh-server qemu-guest-agent
 
@@ -6,5 +7,6 @@ sudo systemctl enable --now qemu-guest-agent
 
 sudo ss -lntp | grep ':22'
 
-
-ssh ubuntu@192.168.0.166
+# Vom Admin-Rechner ausführen. Die zentrale Konfiguration liegt im Repository.
+source apps/core/cluster-host/skip-settings.conf
+ssh -i "$SKIP_SSH_PRIVATE_KEY_FILE" "$SKIP_SSH_USER@$SKIP_SERVER_IP"

@@ -8,7 +8,7 @@ configMapGenerator:
   - name: skip-settings
     namespace: argocd
     envs:
-      - skip-settings.conf
+      - apps/core/cluster-host/skip-settings.conf
 
 generatorOptions:
   disableNameSuffixHash: true
