@@ -22,6 +22,9 @@ spec:
           - name: minio
             path: apps/services/minio
             namespace: minio
+          - name: monitoring
+            path: apps/core/monitoring
+            namespace: monitoring
           - name: sealed-secrets
             path: apps/core/sealed-secrets
             namespace: sealed-secrets

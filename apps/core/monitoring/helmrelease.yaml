@@ -1,0 +1,138 @@
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: monitoring
+  namespace: kube-system   # HelmChart CRD muss bei k3s in kube-system liegen
+spec:
+  repo: https://prometheus-community.github.io/helm-charts
+  chart: kube-prometheus-stack
+  targetNamespace: monitoring
+  version: "91.7.0"
+  valuesContent: |-
+    # CRDs, Prometheus Operator, Prometheus, Alertmanager und Grafana.
+    crds:
+      enabled: true
+
+    # k3s fuehrt diese Control-Plane-Komponenten nicht als die vom Chart
+    # erwarteten separaten Pods aus. Das Abschalten verhindert falsche
+    # "TargetDown"-Meldungen.
+    kubeControllerManager:
+      enabled: false
+    kubeEtcd:
+      enabled: false
+    kubeProxy:
+      enabled: false
+    kubeScheduler:
+      enabled: false
+
+    defaultRules:
+      create: true
+      rules:
+        etcd: false
+        kubeControllerManager: false
+        kubeProxy: false
+        kubeSchedulerAlerting: false
+        kubeSchedulerRecording: false
+
+    prometheusOperator:
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          cpu: 500m
+          memory: 384Mi
+
+    prometheus:
+      enabled: true
+      prometheusSpec:
+        replicas: 1
+        retention: 7d
+        # Laesst auf dem 10-GiB-PVC noch Platz fuer WAL und Kompaktierung.
+        retentionSize: 8GiB
+        resources:
+          requests:
+            cpu: 200m
+            memory: 512Mi
+          limits:
+            cpu: 1000m
+            memory: 1536Mi
+        storageSpec:
+          volumeClaimTemplate:
+            spec:
+              storageClassName: local-path
+              accessModes:
+                - ReadWriteOnce
+              resources:
+                requests:
+                  storage: 10Gi
+
+    alertmanager:
+      enabled: true
+      alertmanagerSpec:
+        replicas: 1
+        retention: 168h
+        resources:
+          requests:
+            cpu: 25m
+            memory: 64Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
+        storage:
+          volumeClaimTemplate:
+            spec:
+              storageClassName: local-path
+              accessModes:
+                - ReadWriteOnce
+              resources:
+                requests:
+                  storage: 1Gi
+
+    grafana:
+      enabled: true
+      fullnameOverride: grafana
+      defaultDashboardsTimezone: Europe/Berlin
+      admin:
+        existingSecret: grafana-admin-credentials
+        userKey: admin-user
+        passwordKey: admin-password
+      service:
+        type: ClusterIP
+        port: 80
+      persistence:
+        enabled: true
+        type: pvc
+        storageClassName: local-path
+        accessModes:
+          - ReadWriteOnce
+        size: 2Gi
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          cpu: 500m
+          memory: 512Mi
+      grafana.ini:
+        server:
+          domain: grafana.$(SKIP_SERVER_IP).sslip.io
+          root_url: https://grafana.$(SKIP_SERVER_IP).sslip.io/
+
+    kube-state-metrics:
+      resources:
+        requests:
+          cpu: 25m
+          memory: 64Mi
+        limits:
+          cpu: 200m
+          memory: 256Mi
+
+    prometheus-node-exporter:
+      resources:
+        requests:
+          cpu: 25m
+          memory: 32Mi
+        limits:
+          cpu: 200m
+          memory: 128Mi
