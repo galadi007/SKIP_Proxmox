@@ -344,7 +344,7 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "sum(kube_pod_status_phase{phase=~\"Pending|Failed|Unknown\"} == 1)",
+          "expr": "sum(kube_pod_status_phase{phase=~\"Pending|Failed|Unknown\"} == 1) or vector(0)",
           "instant": true,
           "legendFormat": "Problematisch",
           "range": false,
@@ -559,7 +559,8 @@
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "continuous-GrYlRd"
+            "fixedColor": "green",
+            "mode": "fixed"
           },
           "decimals": 0,
           "unit": "short"
@@ -612,7 +613,7 @@
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "continuous-RdYlGr"
+            "mode": "thresholds"
           },
           "decimals": 0,
           "thresholds": {
@@ -682,29 +683,11 @@
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "thresholds"
+            "fixedColor": "blue",
+            "mode": "fixed"
           },
           "decimals": 1,
-          "max": 100,
-          "min": 0,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "orange",
-                "value": 75
-              },
-              {
-                "color": "red",
-                "value": 90
-              }
-            ]
-          },
-          "unit": "percent"
+          "unit": "bytes"
         },
         "overrides": []
       },
@@ -736,14 +719,14 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "100 * kubelet_volume_stats_used_bytes / kubelet_volume_stats_capacity_bytes",
+          "expr": "kube_persistentvolumeclaim_resource_requests_storage_bytes",
           "instant": true,
           "legendFormat": "{{namespace}} / {{persistentvolumeclaim}}",
           "range": false,
           "refId": "A"
         }
       ],
-      "title": "PVC-Auslastung",
+      "title": "Angeforderter PVC-Speicher",
       "type": "bargauge"
     }
   ],
