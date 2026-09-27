@@ -8,6 +8,15 @@ resources:
   - helmrelease.yaml
   - ingressroute.yaml
 
+configMapGenerator:
+  - name: grafana-dashboard-skip-overview
+    namespace: monitoring
+    files:
+      - skip-overview.json
+    options:
+      labels:
+        grafana_dashboard: "1"
+
 vars:
   - name: SKIP_SERVER_IP
     objref:

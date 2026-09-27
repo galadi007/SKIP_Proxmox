@@ -6,6 +6,7 @@ Der Ordner installiert den offiziellen `kube-prometheus-stack` mit:
 - Grafana mit persistentem 2-GiB-PVC
 - Alertmanager mit persistentem 1-GiB-PVC
 - Prometheus Operator, Node Exporter und kube-state-metrics
+- GitOps-Dashboard `SKIP - Clusterübersicht` fuer CPU, RAM, Pods und PVCs
 - Grafana-Zugriff ueber Traefik unter
   `https://grafana.<SKIP_SERVER_IP>.sslip.io`
 
