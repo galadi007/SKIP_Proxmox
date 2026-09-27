@@ -1,0 +1,16 @@
+# Textdateien einheitlich mit Linux-Zeilenumbrüchen speichern.
+* text=auto eol=lf
+
+# Native Windows-Skripte behalten CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Binärdateien niemals verändern.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.zip binary
+*.pdf binary
