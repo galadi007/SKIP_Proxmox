@@ -1,0 +1,26 @@
+# Version zentral in versions.yml gepflegt (postgres).
+image: docker.io/library/postgres@sha256:ef257d85f76e48da1c64832459b59fcaba1a4dac97bf5d7450c77753542eee94   # postgres:17.6-alpine
+
+# Secret mit POSTGRES_PASSWORD fuer den Superuser "postgres".
+superuserSecret: postgres-superuser
+
+# Secret mit einem Key "<name>-password" pro Eintrag in "databases".
+appCredentialsSecret: postgres-app-credentials
+
+# Pro Dienst eine Datenbank; Benutzername = Datenbankname.
+databases:
+  - name: authentik
+  - name: litellm
+
+storage:
+  size: 10Gi
+  # Leer = Default-StorageClass des Clusters.
+  storageClassName: ""
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: "1"
+    memory: 1Gi

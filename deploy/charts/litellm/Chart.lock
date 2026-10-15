@@ -1,0 +1,6 @@
+dependencies:
+- name: litellm-helm
+  repository: oci://ghcr.io/berriai
+  version: 1.105.1
+digest: sha256:ec73cfb4ed825815ced05517ff8f6475eeafcb1fcc31f3ebc8be4616d2bf4832
+generated: "2026-10-14T18:11:59.831387+02:00"

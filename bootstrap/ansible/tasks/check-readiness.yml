@@ -1,0 +1,54 @@
+---
+# Read-only Prüfung; im Check-Modus kann noch kein Cluster existieren.
+- name: Auf registrierte und betriebsbereite Knoten warten
+  when: not ansible_check_mode
+  block:
+    - name: Auf Registrierung des Knotens warten
+      ansible.builtin.command:
+        argv: [k3s, kubectl, get, nodes, -o, name]
+      register: registered_nodes
+      changed_when: false
+      until: registered_nodes.rc == 0 and (registered_nodes.stdout | trim | length > 0)
+      retries: 10
+      delay: 3
+
+    - name: Auf Ready-Zustand warten (maximal 300 Sekunden)
+      ansible.builtin.command:
+        argv:
+          - k3s
+          - kubectl
+          - wait
+          - --for=condition=Ready
+          - nodes
+          - --all
+          - --timeout=300s
+      changed_when: false
+
+    - name: Abschließenden Knotenstatus lesen
+      ansible.builtin.command:
+        argv: [k3s, kubectl, get, nodes, -o, wide]
+      register: node_status
+      changed_when: false
+
+    - name: Knotenstatus ausgeben
+      ansible.builtin.debug:
+        msg: "{{ node_status.stdout_lines }}"
+
+  rescue:
+    - name: Knotenstatus zur Fehlerdiagnose abfragen
+      ansible.builtin.command:
+        argv: [k3s, kubectl, get, nodes, -o, wide, --request-timeout=10s]
+      register: readiness_diagnostics
+      changed_when: false
+      failed_when: false
+
+    - name: Bootstrap wegen fehlender Betriebsbereitschaft abbrechen
+      ansible.builtin.fail:
+        msg: >-
+          k3s-Abschlussprüfung fehlgeschlagen. Der Bootstrap ist nicht erfolgreich
+          abgeschlossen. Fehlgeschlagener Schritt: {{ ansible_failed_task.name }}.
+          Ursache: {{ ansible_failed_result.stderr | default(ansible_failed_result.msg | default('Unbekannter Fehler'), true) }}.
+          Knotenstatus: {{ readiness_diagnostics.stdout | default('', true) }}
+          {{ readiness_diagnostics.stderr | default('', true) }}.
+          Zur Diagnose auf dem Zielserver: sudo k3s kubectl describe nodes
+          und sudo journalctl -u k3s -n 100 --no-pager.

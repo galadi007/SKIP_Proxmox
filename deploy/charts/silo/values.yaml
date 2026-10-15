@@ -1,0 +1,19 @@
+# Silo (pgsty-Fork von MinIO, protokoll-/env-kompatibel), siehe README.
+# Version zentral in versions.yml gepflegt (silo).
+image: docker.io/pgsty/silo:RELEASE.2026-09-16T00-00-00Z
+
+# Secret mit MINIO_ROOT_USER und MINIO_ROOT_PASSWORD.
+rootSecret: silo-secret
+
+storage:
+  size: 10Gi
+  # Leer = Default-StorageClass des Clusters.
+  storageClassName: ""
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: "1"
+    memory: 1Gi

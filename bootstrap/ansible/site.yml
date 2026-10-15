@@ -1,0 +1,143 @@
+---
+# SKIP Infrastructure – Ansible Playbook
+# Ziel: Single-Node k3s Cluster auf Ubuntu 24.04 (ubuntu, 192.168.0.166)
+#
+# Ausführen via:
+#   make bootstrap
+# (ruft intern bootstrap.sh -> ansible-playbook auf; kein Docker nötig)
+
+- name: Provision single-node k3s
+  hosts: server
+  become: true
+
+  vars_files:
+    - "{{ playbook_dir }}/../../versions.yml"
+
+  vars:
+    k3s_version: "{{ k3s.version }}"
+    k3s_server_ip: "{{ ansible_host }}"
+    # Alle durch dieses Playbook verwalteten Installationsparameter.
+    k3s_install_exec: >-
+      server --write-kubeconfig-mode 0644
+      --tls-san {{ k3s_server_ip | quote }}
+      --disable servicelb --disable traefik
+
+  tasks:
+
+    # -------------------------------------------------------
+    # 1. System vorbereiten
+    # -------------------------------------------------------
+
+    - name: Swap deaktivieren (sofort)
+      command: swapoff -a
+      changed_when: false
+
+    - name: Swap dauerhaft deaktivieren (fstab)
+      replace:
+        path: /etc/fstab
+        regexp: '^([^#].*\sswap\s.*)$'
+        replace: '# \1'
+
+    - name: Kernel-Module laden (overlay, br_netfilter)
+      modprobe:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - overlay
+        - br_netfilter
+
+    - name: Kernel-Module beim Boot laden
+      copy:
+        dest: /etc/modules-load.d/k3s.conf
+        content: |
+          overlay
+          br_netfilter
+
+    - name: Sysctl-Parameter für Kubernetes setzen
+      sysctl:
+        name: "{{ item.key }}"
+        value: "{{ item.value }}"
+        state: present
+        reload: true
+      loop:
+        - { key: "net.bridge.bridge-nf-call-iptables",  value: "1" }
+        - { key: "net.bridge.bridge-nf-call-ip6tables", value: "1" }
+        - { key: "net.ipv4.ip_forward",                 value: "1" }
+
+    - name: System-Pakete aktualisieren
+      apt:
+        update_cache: true
+        upgrade: dist
+        cache_valid_time: 3600
+
+    - name: Benötigte Pakete installieren
+      apt:
+        name:
+          - curl
+          - wget
+          - git
+          - jq
+          - open-iscsi
+          - nfs-common
+        state: present
+
+    - name: Neustartbedarf nach Paketinstallation prüfen
+      ansible.builtin.stat:
+        path: /var/run/reboot-required
+        get_checksum: false
+        get_mime: false
+        get_attributes: false
+      register: reboot_required
+
+    - name: Neustartmeldung bestimmen
+      ansible.builtin.set_fact:
+        reboot_notice: >-
+          {{ 'Neustart erforderlich. Automatischer Neustart ist deaktiviert. Bitte einen Wartungszeitpunkt einplanen.'
+             if reboot_required.stat.exists
+             else 'Kein Neustart erforderlich.' }}
+
+    - name: Neustartbedarf ausgeben
+      ansible.builtin.debug:
+        msg: "{{ reboot_notice }}"
+
+    - name: iSCSI Dienst aktivieren (für Longhorn)
+      systemd:
+        name: iscsid
+        enabled: true
+        state: started
+
+    # -------------------------------------------------------
+    # 2. k3s installieren
+    # -------------------------------------------------------
+
+    - name: k3s installieren oder aktualisieren
+      import_tasks: tasks/install-k3s.yml
+
+    # -------------------------------------------------------
+    # 3. kubeconfig verfügbar machen
+    # -------------------------------------------------------
+
+    - name: kubeconfig lokal für alle Admins zugänglich machen
+      fetch:
+        src: /etc/rancher/k3s/k3s.yaml
+        dest: "{{ playbook_dir }}/../../kubeconfig"
+        flat: true
+
+    - name: Server-IP in kubeconfig eintragen
+      delegate_to: localhost
+      become: false
+      replace:
+        path: "{{ playbook_dir }}/../../kubeconfig"
+        regexp: 'https://127.0.0.1:6443'
+        replace: "https://{{ k3s_server_ip }}:6443"
+
+    # -------------------------------------------------------
+    # 4. Cluster-Status prüfen
+    # -------------------------------------------------------
+
+    - name: Betriebsbereitschaft des Knotens prüfen
+      import_tasks: tasks/check-readiness.yml
+
+    - name: Abschlusshinweis zum Neustartbedarf
+      ansible.builtin.debug:
+        msg: "{{ reboot_notice }}"

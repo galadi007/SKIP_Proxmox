@@ -1,35 +1,21 @@
-# Ansible
-ansible/inventory.ini
+.idea/
+*.egg-info/
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+skaffold
+.env.secret
+deploy/local/.env
 
-# Kubernetes
+keys/
 kubeconfig
-*.kubeconfig
+kubeconfig-local
 
-# SSH Keys
-*.pem
-*.key
-id_rsa
-id_ed25519
-id_ed25519_*
+deploy/charts/*/charts/
 
-# Secrets & Credentials
+# TODO: Remove later
+deploy_old/
 .env
-*.env
-secrets/
-*.secret
-
-# Temporäre Dateien
-*.tmp
-*.log
-*.bak
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Claude
-.claude
-
-# Lokale Sicherungsarchive
-*.zip
-*.zip_*
+*.backup
+backups/

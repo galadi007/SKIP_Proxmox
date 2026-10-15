@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "capability-operator"
+version = "0.2.0"
+description = "Kopf-Operator, der CapabilityClaims (platform.skip.io) provisioniert"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "kopf>=1.44.6",
+    "skip-capability-sdk",
+]
+
+# Capability-Plugins aus plugins/capabilities/. Welche im Image landen,
+# entscheidet das Dockerfile ueber `--extra`; der Operator findet sie beim
+# Start ueber die Entry-Point-Gruppe `skip.capabilities`.
+[project.optional-dependencies]
+litellm = ["skip-capability-litellm"]
+all = ["capability-operator[litellm]"]
+
+# Nur das Paket `capability_operator` wird installiert. `main.py` wird per Pfad
+# gestartet, weil ein Modul `main` mit apps/skip-api/main.py im gemeinsamen
+# Workspace-venv kollidieren wuerde.
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["capability_operator*"]

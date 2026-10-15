@@ -1,0 +1,166 @@
+MKDOCS_CONFIG := mkdocs.yml
+MKDOCS_ADDR   := 127.0.0.1:8001
+SITE_DIR      := site
+
+LOCAL_CLUSTER_NAME := skip-local
+DEPLOY_DIR := deploy
+LOCAL_DIR  := $(DEPLOY_DIR)/local
+CRDS_DIR   := $(DEPLOY_DIR)/crds
+K3D_CONFIG := $(LOCAL_DIR)/k3d-cluster.yaml
+ENV_FILE   := $(LOCAL_DIR)/.env
+
+LITELLM_CHART         := oci://ghcr.io/berriai/litellm-helm
+LITELLM_CHART_VERSION := 1.101.0
+LITELLM_VALUES        := $(LOCAL_DIR)/dependencies/litellm/values.yaml
+AUTHENTIK_DIR         := $(LOCAL_DIR)/dependencies/authentik
+MINIO_DIR             := $(LOCAL_DIR)/dependencies/minio
+
+PYTHON_APPS := apps/skip-api apps/capability-operator packages/skip-capability-sdk plugins/capabilities
+
+.DEFAULT_GOAL := help
+
+.PHONY: help \
+	lint test check render \
+	docs-start docs-stop docs-clean \
+	create-cluster start-local restart-local stop-local delete-local \
+	init-local reset-local dev nuke load-env bootstrap install-litellm \
+	install-authentik install-minio status
+
+help: ## Alle Targets auflisten
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
+
+# ------------------------------------------
+# Code-Qualitaet
+# ------------------------------------------
+
+lint: ## ruff ueber alle Python-Apps, Pakete und Plugins
+	uv run --group dev ruff check apps packages plugins
+
+test: ## pytest fuer Apps, Pakete und Capability-Plugins
+	uv run --group dev pytest $(PYTHON_APPS)
+
+check: lint test ## Lint + Tests
+
+render: ## Lokales Kustomize-Overlay rendern (Fehlersuche)
+	kubectl kustomize $(LOCAL_DIR)
+
+# ------------------------------------------
+# Docs
+# ------------------------------------------
+
+docs-start: ## MkDocs-Server starten
+	uv run --group docs mkdocs serve -f "$(MKDOCS_CONFIG)" -a "$(MKDOCS_ADDR)"
+
+docs-stop: ## MkDocs-Server stoppen
+	@pkill -f 'mkdocs serve -f $(MKDOCS_CONFIG)' 2>/dev/null || true
+
+docs-clean: docs-stop ## MkDocs stoppen und site/ loeschen
+	@rm -rf "$(SITE_DIR)"
+
+# ------------------------------------------
+# k3d
+# ------------------------------------------
+
+create-cluster: ## k3d-Cluster laut deploy/local/k3d-cluster.yaml erstellen
+	k3d cluster create -c $(K3D_CONFIG)
+
+start-local: ## Lokalen Cluster starten
+	k3d cluster start $(LOCAL_CLUSTER_NAME)
+
+restart-local: ## Lokalen Cluster neu starten
+	k3d cluster restart $(LOCAL_CLUSTER_NAME)
+
+stop-local: ## Lokalen Cluster anhalten
+	k3d cluster stop $(LOCAL_CLUSTER_NAME)
+
+delete-local: ## Lokalen Cluster loeschen
+	k3d cluster delete $(LOCAL_CLUSTER_NAME)
+
+# ------------------------------------------
+# Lokales Setup
+# ------------------------------------------
+
+init-local: create-cluster load-env bootstrap install-authentik install-litellm install-minio dev ## Cluster erstellen, bootstrappen, Authentik, LiteLLM + MinIO installieren und Dev-Loop starten
+
+reset-local: delete-local init-local ## Cluster loeschen und komplett neu aufsetzen
+
+# Dev-Loop: baut Images, deployt deploy/local und synct Codeaenderungen live.
+# Laeuft im Vordergrund (Logs); Ctrl-C stoppt und raeumt die Deployments weg.
+# Wird von init-local automatisch gestartet; danach reicht `make dev` zum Wiedereinstieg.
+dev: ## skaffold dev (Build, Deploy, Live-Sync)
+	skaffold dev
+
+nuke: reset-local ## Alias fuer reset-local
+
+load-env: ## deploy/local/.env aus .env.example anlegen, falls nicht vorhanden
+	@if [ ! -f "$(ENV_FILE)" ]; then cp "$(ENV_FILE).example" "$(ENV_FILE)"; fi
+
+bootstrap: ## KRO installieren, CRDs/RGDs und lokale Tenant-Fixtures anwenden
+	helm upgrade --install kro oci://ghcr.io/kro-run/kro/kro \
+		--namespace kro --create-namespace
+	kubectl apply -f $(CRDS_DIR)/
+	kubectl wait --for=condition=Established crd/capabilityclaims.platform.skip.io --timeout=60s
+	kubectl apply -f $(LOCAL_DIR)/bootstrap/
+	@echo "--- Bootstrap fertig ---"
+
+# Lokale Dev-Fixture (kein produktives Setup). Liest LITELLM_MASTER_KEY und
+# MISTRAL_API_KEY aus deploy/local/.env. Eigener Namespace, damit Ctrl-C in
+# skaffold dev (loescht platform-system) LiteLLM nicht mitreisst.
+install-litellm: load-env ## LiteLLM als lokale Dev-Fixture per Helm installieren (Namespace litellm)
+	@set -a; . $(ENV_FILE); set +a; \
+	if [ -z "$$MISTRAL_API_KEY" ]; then \
+		echo "!!! MISTRAL_API_KEY ist in $(ENV_FILE) leer - LiteLLM wird nicht installiert."; \
+		echo "    Key eintragen und 'make install-litellm' erneut ausfuehren."; \
+		exit 0; \
+	fi; \
+	kubectl create namespace litellm --dry-run=client -o yaml | kubectl apply -f - ; \
+	kubectl -n litellm create secret generic litellm-env \
+		--from-literal=PROXY_MASTER_KEY="$$LITELLM_MASTER_KEY" \
+		--from-literal=MISTRAL_API_KEY="$$MISTRAL_API_KEY" \
+		--dry-run=client -o yaml | kubectl apply -f - ; \
+	helm upgrade --install litellm $(LITELLM_CHART) --version $(LITELLM_CHART_VERSION) \
+		--namespace litellm -f $(LITELLM_VALUES) --wait --timeout 10m
+	@echo "--- LiteLLM erreichbar unter http://litellm.litellm.svc.cluster.local:4000 ---"
+
+# Lokale Dev-Fixture: Authentik als OIDC-Identity-Provider fuer skip-web/skip-api.
+# Liest AUTHENTIK_* und OIDC_CLIENT_* aus deploy/local/.env ins Secret authentik-env;
+# der Blueprint (deploy/local/dependencies/authentik/blueprint.yaml) legt Provider,
+# Gruppen, Testbenutzer und den API-Token beim ersten Start automatisch an.
+install-authentik: load-env ## Authentik als lokale Dev-Fixture installieren (Namespace authentik)
+	@set -a; . $(ENV_FILE); set +a; \
+	kubectl create namespace authentik --dry-run=client -o yaml | kubectl apply -f - ; \
+	kubectl -n authentik create secret generic authentik-env \
+		--from-literal=AUTHENTIK_SECRET_KEY="$$AUTHENTIK_SECRET_KEY" \
+		--from-literal=AUTHENTIK_POSTGRES_PASSWORD="$$AUTHENTIK_POSTGRES_PASSWORD" \
+		--from-literal=AUTHENTIK_API_TOKEN="$$AUTHENTIK_API_TOKEN" \
+		--from-literal=OIDC_CLIENT_ID="$$OIDC_CLIENT_ID" \
+		--from-literal=OIDC_CLIENT_SECRET="$$OIDC_CLIENT_SECRET" \
+		--dry-run=client -o yaml | kubectl apply -f -
+	kubectl apply -k $(AUTHENTIK_DIR)
+	kubectl -n authentik rollout status deploy/authentik-server --timeout=10m
+	@echo "--- Authentik erreichbar unter http://auth.localhost:8080 (akadmin / AdminPw, max.mustermann / Start123!) ---"
+
+# Lokale Dev-Fixture: MinIO als S3-kompatibler Objektspeicher fuer skip-api.
+# Liest MINIO_ROOT_* aus deploy/local/.env ins Secret minio-env.
+install-minio: load-env ## MinIO als lokale Dev-Fixture installieren (Namespace minio)
+	@set -a; . $(ENV_FILE); set +a; \
+	kubectl create namespace minio --dry-run=client -o yaml | kubectl apply -f - ; \
+	kubectl -n minio create secret generic minio-env \
+		--from-literal=MINIO_ROOT_USER="$${MINIO_ROOT_USER:-minioadmin}" \
+		--from-literal=MINIO_ROOT_PASSWORD="$${MINIO_ROOT_PASSWORD:-minioadmin123}" \
+		--dry-run=client -o yaml | kubectl apply -f - ;
+	kubectl apply -k $(MINIO_DIR)
+	kubectl -n minio rollout status deploy/minio --timeout=5m
+	@echo "--- MinIO erreichbar unter Console http://minio.localhost:8080, S3-API http://s3.localhost:8080 (minioadmin / minioadmin123) ---"
+
+# ------------------------------------------
+# Util
+# ------------------------------------------
+
+status: ## KRO-Pods, ResourceGraphDefinitions und CapabilityClaims anzeigen
+	@echo "--- KRO Pods:"; kubectl get pods -n kro
+	@echo "--- Resource Graph Definitions:"; kubectl get resourcegraphdefinitions
+	@echo "--- Authentik Pods:"; kubectl get pods -n authentik 2>/dev/null || echo "  (nicht installiert)"
+	@echo "--- LiteLLM Pods:"; kubectl get pods -n litellm 2>/dev/null || echo "  (nicht installiert)"
+	@echo "--- MinIO Pods:"; kubectl get pods -n minio 2>/dev/null || echo "  (nicht installiert)"
+	@echo "--- CapabilityClaims:"; kubectl get claims -A

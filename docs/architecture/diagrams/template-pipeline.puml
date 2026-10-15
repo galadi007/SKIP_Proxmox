@@ -1,0 +1,38 @@
+@startuml template-pipeline
+skinparam shadowing false
+skinparam defaultFontName "Merriweather Sans"
+left to right direction
+
+package "templates/<name>/ (Git)" {
+  file "template.yaml\n(skip.io/v1alpha1 AppTemplate)" as tpl
+  file "rgd.yaml\n(KRO ResourceGraphDefinition)" as rgd
+  file "README.md + logo.svg" as assets
+}
+
+package "capabilities/<name>/ (Git)" {
+  file "capability.yaml\n(skip.io/v1alpha1 Capability)" as cap
+}
+
+component "skip CLI\n(skip template render)" as cli
+component "skip CLI\n(skip capability render)" as capcli
+
+package "Cluster (platform.skip.de)" {
+  database "AppTemplate CR" as catalog
+  database "ResourceGraphDefinition" as clusterrgd
+  database "Capability CR" as clustercap
+}
+
+tpl --> cli
+rgd --> cli
+assets --> cli
+cli --> catalog : kubectl apply
+cli --> clusterrgd : kubectl apply
+cap --> capcli
+capcli --> clustercap : kubectl apply
+
+note bottom of cli
+  validiert gegen Meta-Schema,
+  prueft Konfigurations-Schema
+  gegen das Instanz-Spec der RGD
+end note
+@enduml

@@ -1,0 +1,65 @@
+# Zentrale Versionsdatei der SKIP-Infrastruktur.
+# Grundlage: main und Cluster-Bestandsaufnahme vom 2026-09-25.
+# Ansible und Make lesen k3s/ArgoCD direkt. Fuer Dienst-Manifeste:
+# make versions-sync, danach make versions-check; beide Dateien committen.
+# ArgoCD liest die eingecheckten Manifeste, nicht diese Datei.
+# chart_version: Helm-Chart; app_version: beobachtete Anwendungsversion.
+# Begleitkomponenten sind nicht vollstaendig aufgefuehrt.
+# app_version, version bei Images und observed_digest sind Dokumentation.
+# Wirksam sind chart_version bzw. image. Versionstags sind veraenderlich.
+
+schema_version: 1
+
+k3s:
+  version: "v1.35.4+k3s1"
+
+argocd:
+  version: "v3.5.2"
+
+harbor:
+  manifest: "apps/core/harbor/helmrelease.yaml"
+  chart_version: "1.16.0"
+  app_version: "v2.12.0"
+
+traefik:
+  manifest: "deploy/charts/traefik/Chart.yaml"
+  chart_version: "33.2.1"
+  app_version: "v3.2.2"
+
+sealed_secrets:
+  manifest: "apps/core/sealed-secrets/helmrelease.yaml"
+  chart_version: "2.20.0"
+  app_version: "0.40.0"
+
+authentik:
+  manifest: "deploy/charts/authentik/Chart.yaml"
+  chart_version: "2026.8.3"
+  app_version: "2026.8.3"
+
+# Gemeinsame PostgreSQL fuer alle Dienste (authentik, litellm, ...).
+postgres:
+  manifest: "deploy/charts/postgres/values.yaml"
+  container: "postgres"
+  version: "17.6-alpine"
+  image: "docker.io/library/postgres@sha256:ef257d85f76e48da1c64832459b59fcaba1a4dac97bf5d7450c77753542eee94"
+
+litellm:
+  manifest: "deploy/charts/litellm/Chart.yaml"
+  chart_version: "1.105.1"
+  app_version: "1.105.1"
+
+silo:
+  manifest: "deploy/charts/silo/values.yaml"
+  container: "silo"
+  version: "RELEASE.2026-09-16T00-00-00Z"
+  image: "docker.io/pgsty/silo:RELEASE.2026-09-16T00-00-00Z"
+  observed_digest: "sha256:635197cb9f36d01bee221d34d1c7d7960f6a95c48b0b6c01d99cd13bdae51a46"
+
+# MinIO wurde am 26.09.2026 durch Silo (pgsty-Fork von MinIO, siehe README)
+# ersetzt. Der folgende Eintrag bleibt als historischer Stand zur Referenz
+# auskommentiert; sync/check ignorieren diesen Kommentarblock.
+# minio:
+#   manifest: "apps/services/minio/statefulset.yaml"
+#   container: "minio"
+#   version: "RELEASE.2025-09-07T16-13-09Z"
+#   image: "quay.io/minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e"

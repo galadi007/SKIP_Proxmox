@@ -1,0 +1,54 @@
+name: Deploy MkDocs to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+
+# Erforderliche Berechtigungen für den direkten Upload zu GitHub Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Verhindert, dass mehrere Deployments gleichzeitig laufen
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.x
+          cache: 'pip' # Optional: Beschleunigt zukünftige Builds
+
+      - name: Install Dependencies
+        run: pip install mkdocs-material
+        
+      - name: Build MkDocs
+        run: mkdocs build
+        
+      - name: Upload GitHub Pages Artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./site # Das Standard-Ausgabeverzeichnis von MkDocs
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    # Nur deployen, wenn der Push auf dem main-Branch stattfand (optional, aber empfohlen)
+    if: github.ref == 'refs/heads/main' 
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

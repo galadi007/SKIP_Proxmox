@@ -1,0 +1,37 @@
+apiVersion: skaffold/v4beta13
+kind: Config
+metadata:
+  name: skip-platform
+build:
+  local:
+    push: false
+  artifacts:
+    - image: skip-api
+      context: .
+      docker:
+        dockerfile: apps/skip-api/Dockerfile
+      sync:
+        manual:
+          - src: "apps/skip-api/**/*.py"
+            dest: /app
+    - image: skip-web
+      context: apps/skip-web
+      docker:
+        dockerfile: Dockerfile
+      sync:
+        manual:
+          - src: "src/**"
+            dest: /app
+          - src: "static/**"
+            dest: /app
+    # Kein Sync: Kopf laedt Code nicht neu; Skaffold baut das Image bei Aenderungen.
+    - image: capability-operator
+      context: .
+      docker:
+        dockerfile: apps/capability-operator/Dockerfile
+manifests:
+  kustomize:
+    paths:
+      - deploy/local
+deploy:
+  kubectl: {}

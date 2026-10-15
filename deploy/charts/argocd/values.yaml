@@ -1,0 +1,13 @@
+argo-cd:
+  dex:
+    enabled: false
+  notifications:
+    enabled: false
+  configs:
+    params:
+      # TLS terminiert vor ArgoCD (Port-Forward/Ingress).
+      server.insecure: true
+    credentialTemplates:
+      github-ssh:
+        url: git@github.com:galadi007/SKIP_Proxmox.git
+        # sshPrivateKey wird im Makefile per --set-file gesetzt

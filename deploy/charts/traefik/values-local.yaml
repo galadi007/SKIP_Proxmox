@@ -1,0 +1,6 @@
+# Lokales Overlay (k3d), wird ueber values.yaml gelegt.
+# k3d leitet 127.0.0.1:8080/8443 ueber den serverlb an Port 80/443 der
+# Nodes weiter; dort bindet der LoadBalancer-Service (k3s servicelb).
+traefik:
+  service:
+    type: LoadBalancer

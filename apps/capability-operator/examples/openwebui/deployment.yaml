@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: openwebui
+  labels:
+    app.kubernetes.io/name: openwebui
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: openwebui
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: openwebui
+    spec:
+      containers:
+        - name: open-webui
+          image: ghcr.io/open-webui/open-webui:v0.6.15
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            # Endpoint aus dem Secret des Claims (entspricht `.status.binding.endpoint`).
+            - name: OPENAI_API_BASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: openwebui-llm-credentials
+                  key: endpoint
+            # Virtueller Key aus dem Secret, das der Operator fuer den Claim anlegt.
+            # Bis der Claim Ready ist, bleibt der Pod in CreateContainerConfigError
+            # und startet danach automatisch.
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: openwebui-llm-credentials
+                  key: api-key
+            - name: ENABLE_OLLAMA_API
+              value: "false"
+            # Embeddings ueber LiteLLM statt lokalem Torch-Modell; spart >1Gi RAM beim Start.
+            - name: RAG_EMBEDDING_ENGINE
+              value: openai
+            - name: RAG_EMBEDDING_MODEL
+              value: text-embedding-3-small
+            # Nur fuer das Beispiel: kein Login, erster Aufruf ist Admin.
+            - name: WEBUI_AUTH
+              value: "false"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 5
+            failureThreshold: 12
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              memory: 4Gi
+          volumeMounts:
+            - name: data
+              mountPath: /app/backend/data
+      volumes:
+        # Nur fuer das Beispiel; das Template unter templates/openwebui nutzt ein PVC.
+        - name: data
+          emptyDir: {}

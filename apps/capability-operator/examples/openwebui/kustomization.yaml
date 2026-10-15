@@ -1,0 +1,11 @@
+# Beispiel: Open WebUI, das ueber einen CapabilityClaim an LiteLLM angebunden wird.
+#   kubectl apply -k apps/capability-operator/examples/openwebui
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: team-data
+
+resources:
+  - capabilityclaim.yaml
+  - deployment.yaml
+  - service.yaml

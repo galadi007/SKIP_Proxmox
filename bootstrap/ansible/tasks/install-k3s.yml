@@ -1,0 +1,105 @@
+---
+- name: Vorhandene k3s-Installation prüfen
+  ansible.builtin.stat:
+    path: /usr/local/bin/k3s
+  register: k3s_binary
+
+- name: Installierte k3s-Version lesen
+  ansible.builtin.command: /usr/local/bin/k3s --version
+  register: k3s_version_result
+  changed_when: false
+  check_mode: false
+  when: k3s_binary.stat.exists
+
+- name: Installierte Version und gewünschten Installationsstand bestimmen
+  ansible.builtin.set_fact:
+    k3s_installed_version: "{{ (k3s_version_result.stdout | regex_findall('k3s version (v[^ ]+)') | first) if k3s_binary.stat.exists else '' }}"
+    k3s_desired_state: "{{ {'version': k3s_version, 'exec': k3s_install_exec} | to_json | hash('sha256') }}"
+
+- name: Downgrades und übersprungene Kubernetes-Minor-Versionen verhindern
+  ansible.builtin.assert:
+    that:
+      - k3s_version is match('^v[0-9]+\.[0-9]+\.[0-9]+[+]k3s[0-9]+$')
+      - k3s_version[1:] is version(k3s_installed_version[1:], '>=')
+      - k3s_version.split('.')[0] == k3s_installed_version.split('.')[0]
+      - (k3s_version.split('.')[1] | int) <= (k3s_installed_version.split('.')[1] | int) + 1
+    fail_msg: "Kein automatisches Downgrade oder Überspringen von Minor-Versionen. Upgrade schrittweise planen."
+  when: k3s_binary.stat.exists
+
+- name: Erfolgreichen Installationsstand suchen
+  ansible.builtin.stat:
+    path: /var/lib/skip/k3s-install.sha256
+  register: k3s_state_file
+
+- name: Erfolgreichen Installationsstand lesen
+  ansible.builtin.slurp:
+    src: /var/lib/skip/k3s-install.sha256
+  register: k3s_previous_state
+  when: k3s_state_file.stat.exists
+
+- name: Installationsbedarf bestimmen
+  ansible.builtin.set_fact:
+    k3s_install_required: >-
+      {{ not k3s_binary.stat.exists
+         or k3s_installed_version != k3s_version
+         or (k3s_previous_state.content | default('') | b64decode | trim) != k3s_desired_state }}
+
+- name: Erforderliche k3s-Installation ausführen
+  when: k3s_install_required
+  block:
+    - name: Geschütztes Arbeitsverzeichnis anlegen
+      ansible.builtin.file:
+        path: /var/lib/skip
+        state: directory
+        owner: root
+        group: root
+        mode: '0700'
+
+    # Download getrennt von Ausführung: kein curl-Fehler wird durch eine Pipe verdeckt.
+    - name: Offizielles k3s-Installationsskript herunterladen
+      ansible.builtin.get_url:
+        url: https://get.k3s.io
+        dest: /var/lib/skip/install-k3s.sh
+        owner: root
+        group: root
+        mode: '0700'
+        force: true
+
+    - name: Gewünschte k3s-Version und vollständige Parameter anwenden
+      ansible.builtin.command: /bin/sh /var/lib/skip/install-k3s.sh
+      environment:
+        INSTALL_K3S_VERSION: "{{ k3s_version }}"
+        INSTALL_K3S_EXEC: "{{ k3s_install_exec }}"
+      changed_when: true
+
+- name: k3s Service starten und aktivieren
+  ansible.builtin.systemd:
+    name: k3s
+    enabled: true
+    state: started
+
+- name: Warten bis k3s API erreichbar ist
+  ansible.builtin.wait_for:
+    port: 6443
+    host: "127.0.0.1"
+    timeout: 120
+  when: not ansible_check_mode
+
+- name: Installierte Zielversion überprüfen
+  ansible.builtin.command: /usr/local/bin/k3s --version
+  register: k3s_verified_version
+  changed_when: false
+  failed_when: "('k3s version ' ~ k3s_version ~ ' ') not in k3s_verified_version.stdout"
+  when: not ansible_check_mode
+
+# Erst nach Erfolg speichern. Ein fehlgeschlagener Lauf wird erneut versucht.
+- name: Erfolgreich angewendeten Installationsstand speichern
+  ansible.builtin.copy:
+    dest: /var/lib/skip/k3s-install.sha256
+    content: "{{ k3s_desired_state }}\n"
+    owner: root
+    group: root
+    mode: '0600'
+  when:
+    - k3s_install_required
+    - not ansible_check_mode

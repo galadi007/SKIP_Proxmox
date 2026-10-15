@@ -1,0 +1,98 @@
+site_name: SKIP Plattform Dokumentation
+site_url: https://fhswf.github.io/PG-SKIP-Platform/
+theme:
+  name: material
+  language: de
+  font:
+    text: Merriweather Sans
+    code: Red Hat Mono
+  logo: assets/logoNoBackground.png
+  favicon: assets/favicon.ico
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - navigation.footer
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+  palette:
+    # Dark Mode
+    - scheme: slate
+      toggle:
+        icon: material/weather-sunny
+        name: In Light Mode wechseln
+      primary: green
+      accent: deep purple
+    # Light Mode
+    - scheme: default
+      toggle:
+        icon: material/weather-night
+        name: In Dark Mode wechseln
+      primary: blue
+      accent: deep orange
+
+markdown_extensions:
+  - attr_list
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets:
+      base_path:
+        - docs
+        - .
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format   
+  - pymdownx.tabbed:
+      alternate_style: true
+  - admonition
+  - pymdownx.details
+
+nav:
+  - Übersicht: index.md
+  - Erste Schritte:
+      - Schnellstart (Lokal testen): getting-started/quickstart.md
+  - Architektur:
+      - Systemaufbau: architecture/index.md
+      - KRO & CRD Modell: architecture/kro-and-crds.md
+      - Template-Modell: architecture/template-model.md
+      - Deploy-Ablauf: architecture/deployment-flow.md
+      - Plattform- vs. Infrastruktur-Repository: architecture/repository-boundary.md
+  - Komponenten:
+      - Backend (skip-api): components/backend.md
+      - Frontend (skip-web): components/frontend.md
+      - Identity & SSO (Authentik): components/authentik.md
+      - Capability-Operator: components/capability-operator.md
+      - Shared Services (MinIO & LiteLLM): components/services.md
+  - Templates:
+      - Katalog & Vorlagen: app-templates/index.md
+      - Eigenes Template erstellen: app-templates/authoring.md
+      - Templates aus Git-Repositories: app-templates/sources.md
+  - Werkzeuge & Tools:
+      - Toolchain Übersicht: tools/index.md
+      - Entwickler-Befehle (Cheatsheet): tools/commands-guide.md
+  - Deployment & Betrieb:
+      - Lokales Deployment & Workflows: deployment/local.md
+      - Ingress & Netzwerk-Routing: deployment/ingress.md
+  - Referenz:
+      - Make-Targets: reference/make.md
+      - REST-API Referenz: reference/api.md
+
+extra:
+  social:
+    - icon: simple/github
+      link: https://github.com/fhswf/PG-SKIP
+    - icon: simple/github
+      link: https://github.com/galadi007/SKIP_Proxmox
+copyright: Copyright &copy; 2026 Projektgruppe SKIP der FH Südwestfalen | Dokumentation wurde mit Hilfe von KI erstellt.

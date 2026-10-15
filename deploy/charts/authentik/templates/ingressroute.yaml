@@ -1,0 +1,15 @@
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: authentik
+spec:
+  entryPoints:
+    - web
+    - websecure
+  routes:
+    - kind: Rule
+      match: Host(`{{ .Values.ingress.host }}`)
+      services:
+        - name: {{ .Release.Name }}-server
+          port: 80
+  tls: {}

@@ -1,0 +1,47 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: postgres-provision
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation
+spec:
+  backoffLimit: 10
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: provision
+          image: {{ .Values.image }}
+          env:
+            - name: PGHOST
+              value: postgres
+            - name: PGUSER
+              value: postgres
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.superuserSecret }}
+                  key: POSTGRES_PASSWORD
+            {{- range .Values.databases }}
+            - name: DB_PASSWORD_{{ .name | upper | replace "-" "_" }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.appCredentialsSecret }}
+                  key: {{ .name }}-password
+            {{- end }}
+          command:
+            - /bin/sh
+            - -ec
+            - |
+              until pg_isready -q; do echo "warte auf postgres..."; sleep 2; done
+              {{- range .Values.databases }}
+              echo "provisioniere {{ .name }}"
+              psql -v ON_ERROR_STOP=1 -v name='{{ .name }}' -v pw="$DB_PASSWORD_{{ .name | upper | replace "-" "_" }}" <<'SQL'
+              SELECT format('CREATE ROLE %I LOGIN', :'name')
+                WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = :'name') \gexec
+              ALTER ROLE :"name" WITH LOGIN PASSWORD :'pw';
+              SELECT format('CREATE DATABASE %I OWNER %I', :'name', :'name')
+                WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = :'name') \gexec
+              SQL
+              {{- end }}

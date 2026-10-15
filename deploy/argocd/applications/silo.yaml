@@ -1,0 +1,20 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: silo
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: git@github.com:galadi007/SKIP_Proxmox.git
+    targetRevision: main
+    path: deploy/charts/silo
+    helm:
+      valueFiles:
+        - values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: silo
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true

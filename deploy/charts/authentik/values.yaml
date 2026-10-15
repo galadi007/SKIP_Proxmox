@@ -1,0 +1,41 @@
+# Hostname der IngressRoute (sslip.io-Notation des Cluster-Hosts).
+ingress:
+  host: authentik.192-168-0-166.sslip.io
+
+authentik:
+  # Secrets (AUTHENTIK_SECRET_KEY, AUTHENTIK_POSTGRESQL__PASSWORD,
+  # AUTHENTIK_BOOTSTRAP_PASSWORD, AUTHENTIK_BOOTSTRAP_TOKEN) kommen aus dem
+  # Secret "authentik-secret" - NICHT hier im Klartext eintragen.
+  global:
+    envFrom:
+      - secretRef:
+          name: authentik-secret
+
+  # Gemeinsame PostgreSQL der Plattform (deploy/charts/postgres).
+  authentik:
+    postgresql:
+      host: postgres.postgres.svc.cluster.local
+      name: authentik
+      user: authentik
+      port: 5432
+
+  postgresql:
+    enabled: false
+
+  server:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 512Mi
+      limits:
+        cpu: "1"
+        memory: 1Gi
+
+  worker:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 512Mi
+      limits:
+        cpu: "1"
+        memory: 1Gi

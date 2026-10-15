@@ -1,0 +1,25 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: traefik
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  project: default
+  source:
+    repoURL: git@github.com:galadi007/SKIP_Proxmox.git
+    targetRevision: main
+    path: deploy/charts/traefik
+    helm:
+      valueFiles:
+        - values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: traefik
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+      # Traefik-CRDs sind zu gross fuer client-side apply.
+      - ServerSideApply=true
+      - SkipDryRunOnMissingResource=true

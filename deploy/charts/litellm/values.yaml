@@ -1,0 +1,15 @@
+litellm:
+  proxy_config:
+    model_list: []
+
+  # Gemeinsame PostgreSQL der Plattform (deploy/charts/postgres) statt
+  # eigener Bitnami-Subchart.
+  db:
+    useExisting: true
+    deployStandalone: false
+    endpoint: postgres.postgres.svc.cluster.local
+    database: litellm
+    secret:
+      name: litellm-db
+      usernameKey: username
+      passwordKey: password

@@ -1,0 +1,133 @@
+apiVersion: platform.skip.io/v1alpha1
+kind: AppTemplate
+
+metadata:
+  name: open-webui
+
+spec:
+  displayName: Open WebUI
+  summary: Chat-Oberfläche für die Plattform-LLMs mit eigener PostgreSQL-Datenbank
+  version: 1.1.0
+  author: Skip Platform
+
+  categories:
+    - ai
+
+  tags:
+    - llm
+    - chat
+    - openwebui
+
+  description:
+    format: markdown
+    file: README.md
+
+  parameters:
+    - name: storageSize
+      displayName: Speicher
+      description: Größe des persistenten Datenverzeichnisses (Uploads, Dokumente)
+      type: string
+      pattern: "^[0-9]+(Mi|Gi)$"
+      default: 2Gi
+
+    - name: dbStorageSize
+      displayName: Datenbank-Speicher
+      description: Größe des PostgreSQL-Volumes
+      type: string
+      pattern: "^[0-9]+(Mi|Gi)$"
+      default: 1Gi
+      advanced: true
+
+  # LLM-Zugang ist Pflicht: das Backend legt beim Deploy einen CapabilityClaim
+  # `<app>-llm` an; der capability-operator provisioniert einen virtuellen
+  # LiteLLM-Key und schreibt Endpoint + Key in das Secret `<app>-llm-credentials`.
+  capabilities:
+    - name: llm
+      type: llm-access
+      class: standard
+      properties:
+        models:
+          - mistral-small
+          - mistral-large
+
+  # Zwei Komponenten: die Web-UI und ihre Datenbank. Jede wird zu einer eigenen
+  # Application-Instanz (`<app>-open-webui`, `<app>-postgres`) mit Deployment,
+  # Service und PVC; die UI erreicht die Datenbank ueber ${components.postgres.host}.
+  components:
+    - name: open-webui
+      image: ghcr.io/open-webui/open-webui:v0.6.15
+
+      ports:
+        - name: http
+          containerPort: 8080
+
+      expose:
+        - name: web
+          type: http
+          port: http
+
+      env:
+        - name: DATABASE_URL
+          value: postgresql://webui:webui@${components.postgres.host}:${components.postgres.ports.postgres}/webui
+        - name: ENABLE_OLLAMA_API
+          value: "false"
+        # Embeddings ueber das Gateway statt lokalem Torch-Modell (spart >1 GiB RAM)
+        - name: RAG_EMBEDDING_ENGINE
+          value: openai
+        - name: RAG_EMBEDDING_MODEL
+          value: text-embedding-3-small
+        # Die Plattform authentifiziert bereits ueber Authentik; kein zweiter Login.
+        - name: WEBUI_AUTH
+          value: "false"
+
+      resources:
+        requests:
+          cpu: 250m
+          memory: 512Mi
+        limits:
+          cpu: "2"
+          memory: 4Gi
+
+      storage:
+        size: ${parameters.storageSize}
+        mountPath: /app/backend/data
+
+      bindings:
+        - capability: llm
+          env:
+            endpoint: OPENAI_API_BASE_URL
+            credential: OPENAI_API_KEY
+
+    - name: postgres
+      image: docker.io/library/postgres:16-alpine
+
+      ports:
+        - name: postgres
+          containerPort: 5432
+
+      expose:
+        - name: db
+          type: tcp
+          port: postgres
+
+      env:
+        - name: POSTGRES_DB
+          value: webui
+        - name: POSTGRES_USER
+          value: webui
+        - name: POSTGRES_PASSWORD
+          value: webui
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+        limits:
+          cpu: "1"
+          memory: 1Gi
+
+      storage:
+        size: ${parameters.dbStorageSize}
+        mountPath: /var/lib/postgresql/data

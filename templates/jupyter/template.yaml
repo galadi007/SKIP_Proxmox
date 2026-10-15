@@ -1,0 +1,141 @@
+apiVersion: platform.skip.io/v1alpha1
+kind: AppTemplate
+
+metadata:
+  name: jupyter-notebook
+
+spec:
+  displayName: Jupyter Notebook
+  summary: Managed Jupyter Notebook environment
+  version: 1.0.0
+  author: Skip Platform
+
+  categories:
+    - development
+    - data-science
+    - ai
+
+  tags:
+    - python
+    - jupyter
+    - notebook
+    - ai
+
+  description:
+    format: markdown
+    file: README.md
+
+  logo:
+    file: logo.svg
+
+  # ------------------------------------------------------------
+  # Nutzerkonfiguration: daraus erzeugt das Frontend das Formular.
+  # Enum-Werte duerfen beliebige Zusatzfelder tragen (z. B. image, cpu),
+  # die Komponenten ueber ${parameters.<name>.<feld>} referenzieren.
+  # ------------------------------------------------------------
+  parameters:
+    - name: variant
+      displayName: Variante
+      description: Vorinstallierte Python-Umgebung des Notebooks
+      type: enum
+      default: minimal
+      values:
+        - name: minimal
+          displayName: Minimal
+          image: quay.io/jupyter/minimal-notebook
+        - name: scipy
+          displayName: SciPy
+          image: quay.io/jupyter/scipy-notebook
+        - name: datascience
+          displayName: Data Science
+          image: quay.io/jupyter/datascience-notebook
+
+    - name: size
+      displayName: Größe
+      description: Rechenressourcen des Notebooks
+      type: enum
+      default: small
+      values:
+        - name: small
+          displayName: Small (1 CPU, 2 GiB)
+          cpu: "1"
+          memory: 2Gi
+        - name: medium
+          displayName: Medium (2 CPU, 4 GiB)
+          cpu: "2"
+          memory: 4Gi
+        - name: large
+          displayName: Large (4 CPU, 8 GiB)
+          cpu: "4"
+          memory: 8Gi
+
+    - name: storageSize
+      displayName: Speicher
+      description: Größe des persistenten Workspace-Volumes
+      type: string
+      pattern: "^[0-9]+(Mi|Gi)$"
+      default: 5Gi
+
+    - name: accessToken
+      displayName: Zugangs-Token
+      description: Token für die Anmeldung am Notebook (leer = ohne Anmeldung)
+      type: string
+      default: skip
+      advanced: true
+
+    - name: llmAccess
+      displayName: LLM-Zugang
+      description: Zugang zum LLM-Gateway der Plattform als OPENAI_* Umgebungsvariablen bereitstellen
+      type: boolean
+      default: false
+
+  # ------------------------------------------------------------
+  # Angeforderte Plattform-Capabilities (werden als CapabilityClaim angelegt)
+  # ------------------------------------------------------------
+  capabilities:
+    - name: llm
+      type: llm-access
+      class: standard
+      when: ${parameters.llmAccess}
+      properties:
+        models:
+          - mistral-small
+          - mistral-large
+
+  # ------------------------------------------------------------
+  # Komponenten: werden auf die generische Application-RGD abgebildet
+  # ------------------------------------------------------------
+  components:
+    - name: jupyter
+      image: ${parameters.variant.image}
+
+      ports:
+        - name: http
+          containerPort: 8888
+
+      expose:
+        - name: notebook
+          type: http
+          port: http
+
+      env:
+        - name: JUPYTER_TOKEN
+          value: ${parameters.accessToken}
+
+      resources:
+        requests:
+          cpu: ${parameters.size.cpu}
+          memory: ${parameters.size.memory}
+        limits:
+          cpu: ${parameters.size.cpu}
+          memory: ${parameters.size.memory}
+
+      storage:
+        size: ${parameters.storageSize}
+        mountPath: /home/jovyan/work
+
+      bindings:
+        - capability: llm
+          env:
+            endpoint: OPENAI_BASE_URL
+            credential: OPENAI_API_KEY

@@ -1,0 +1,14 @@
+# Die Anwendung fordert LLM-Zugang an. Der capability-operator legt einen
+# virtuellen LiteLLM-Key an, der nur die genannten Modelle nutzen darf, und
+# schreibt ihn in das Secret `openwebui-llm-credentials` (Schluessel `api-key`)
+# im selben Namespace. Endpunkt und Secret-Referenz stehen in `.status.binding`.
+apiVersion: platform.skip.io/v1alpha1
+kind: CapabilityClaim
+metadata:
+  name: openwebui-llm
+spec:
+  type: llm-access
+  properties:
+    models:
+      - mistral-small
+      - mistral-large

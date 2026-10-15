@@ -1,0 +1,29 @@
+@startuml deploy-sequence
+skinparam shadowing false
+skinparam defaultFontName "Merriweather Sans"
+
+actor Nutzer
+participant "skip-web" as web
+participant "skip-api" as api
+participant "Kube-API" as kube
+participant "KRO" as kro
+
+Nutzer -> web : Formular "Deploy" absenden
+web -> api : POST /api/apps\n{template, name, namespace, values}
+api -> kube : AppTemplate CR lesen
+api -> kube : Capability CRs auflisten\n(fuer jedes spec.capabilities)
+api -> kube : Plattform-Secret der Capability lesen
+api -> api : Instanz-Spec bauen:\nvalues + Token-Secrets + Capability-Bindings
+api -> kube : Instanz-CR erstellen (dry-run)
+api -> kube : Instanz-CR erstellen
+api -> kube : Secrets im App-Namespace anlegen\n(ownerReference auf Instanz)
+api --> web : 201 Created
+web --> Nutzer : Redirect auf /apps
+
+kro -> kube : Instanz-CR beobachten
+kro -> kube : Deployment, Service, PVC\nlaut RGD erzeugen
+Nutzer -> web : /apps
+web -> api : GET /api/apps
+api -> kube : Instanzen + Status lesen
+api --> web : Phase: Deploying/Running/Failed
+@enduml

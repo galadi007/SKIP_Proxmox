@@ -1,0 +1,77 @@
+apiVersion: platform.skip.io/v1alpha1
+kind: AppTemplate
+
+metadata:
+  name: marimo
+
+spec:
+  displayName: Marimo Notebook
+  summary: Managed reactive Marimo notebook environment
+  version: 0.1.0
+  author: Platform Team
+
+  categories:
+    - development
+    - data-science
+
+  tags:
+    - python
+    - notebook
+    - reactive
+
+  description:
+    format: markdown
+    inline: |
+      A reactive Marimo notebook with a persistent working directory.
+
+  parameters:
+    - name: size
+      displayName: Größe
+      description: Rechenressourcen des Notebooks
+      type: enum
+      default: small
+      values:
+        - name: small
+          displayName: Small (0.5 CPU, 1 GiB)
+          cpu: 500m
+          memory: 1Gi
+        - name: medium
+          displayName: Medium (1 CPU, 2 GiB)
+          cpu: "1"
+          memory: 2Gi
+        - name: large
+          displayName: Large (2 CPU, 4 GiB)
+          cpu: "2"
+          memory: 4Gi
+
+    - name: storageSize
+      displayName: Speicher
+      description: Größe des persistenten Workspace-Volumes
+      type: string
+      pattern: "^[0-9]+(Mi|Gi)$"
+      default: 1Gi
+
+  components:
+    - name: marimo
+      image: marimo:0.1.0
+
+      ports:
+        - name: http
+          containerPort: 2718
+
+      expose:
+        - name: notebook
+          type: http
+          port: http
+
+      resources:
+        requests:
+          cpu: ${parameters.size.cpu}
+          memory: ${parameters.size.memory}
+        limits:
+          cpu: ${parameters.size.cpu}
+          memory: ${parameters.size.memory}
+
+      storage:
+        size: ${parameters.storageSize}
+        mountPath: /home/marimo/work

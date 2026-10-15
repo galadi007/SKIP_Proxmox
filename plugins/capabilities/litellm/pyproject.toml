@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "skip-capability-litellm"
+version = "0.1.0"
+description = "Capability-Plugin `llm-access`: virtuelle LiteLLM-Keys fuer CapabilityClaims"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "skip-capability-sdk",
+    "kubernetes>=36.0.3",
+    "requests>=2.32",
+]
+
+# Name = `spec.type` der Claims, die dieses Plugin bearbeitet.
+[project.entry-points."skip.capabilities"]
+llm-access = "skip_capability_litellm:LiteLLMCapability"
+
+[tool.setuptools.packages.find]
+where = ["src"]

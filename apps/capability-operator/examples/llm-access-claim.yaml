@@ -1,0 +1,16 @@
+# Beispiel: Eine Anwendung fordert Zugang zu LiteLLM an.
+#
+# Der Operator legt daraufhin einen virtuellen LiteLLM-Key an und schreibt
+# ihn in das Secret `my-llm-credentials` (Schlüssel `api-key`) im selben
+# Namespace. Endpunkt und Secret-Referenz stehen anschließend in
+# `.status.binding`.
+apiVersion: platform.skip.io/v1alpha1
+kind: CapabilityClaim
+metadata:
+  name: my-llm
+  namespace: cap-test
+spec:
+  type: llm-access
+  properties:
+    models:
+      - mistral-small

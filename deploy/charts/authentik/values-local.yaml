@@ -1,0 +1,15 @@
+# Lokales Overlay (k3d), wird ueber values.yaml gelegt.
+ingress:
+  host: authentik.localhost
+
+authentik:
+  server:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 384Mi
+  worker:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 384Mi

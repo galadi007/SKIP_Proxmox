@@ -1,0 +1,40 @@
+@startuml components
+skinparam componentStyle rectangle
+skinparam shadowing false
+skinparam defaultFontName "Merriweather Sans"
+left to right direction
+
+actor "Nutzer" as user
+
+package "platform-system" {
+  [skip-web\n(SvelteKit)] as web
+  [skip-api\n(FastAPI)] as api
+  [LiteLLM\nLLM-Gateway] as litellm
+  [MinIO] as minio
+}
+
+package "Kubernetes API" {
+  database "AppTemplate CRs\n(Katalog)" as catalog
+  database "Capability CRs" as caps
+  database "ResourceGraph-\nDefinitions" as rgds
+  database "Instanz-CRs\n(z.B. OpenWebUI)" as instances
+}
+
+package "kro" {
+  [KRO Controller] as kroctl
+}
+
+package "team-data (Tenant)" {
+  [App-Workload\nDeployment + Service + PVC] as workload
+}
+
+user --> web : Traefik Ingress
+web --> api : REST /api/*
+api --> catalog : lesen
+api --> caps : lesen
+api --> instances : erstellen/loeschen
+kroctl --> rgds : beobachtet
+kroctl --> instances : reconciled
+kroctl --> workload : erzeugt
+workload --> litellm : OpenAI-API\n(Capability-Binding)
+@enduml

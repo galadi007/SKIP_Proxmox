@@ -1,0 +1,40 @@
+name: Python CI
+
+on:
+  pull_request:
+    paths:
+      - "apps/skip-api/**"
+      - "apps/capability-operator/**"
+      - "packages/**"
+      - "plugins/**"
+      - "templates/**"   # skip-api-Tests laden die echten Templates
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".github/workflows/python-ci.yaml"
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install workspace
+        run: uv sync --all-packages --group dev --frozen
+
+      - name: Lint
+        run: uv run ruff check apps packages plugins
+
+      - name: Test
+        run: uv run pytest apps/skip-api apps/capability-operator packages/skip-capability-sdk plugins/capabilities

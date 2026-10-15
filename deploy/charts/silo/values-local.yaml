@@ -1,0 +1,9 @@
+# Lokales Overlay (k3d), wird ueber values.yaml gelegt.
+# storageClassName bleibt leer -> local-path von k3d.
+storage:
+  size: 1Gi
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi

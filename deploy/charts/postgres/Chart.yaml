@@ -1,0 +1,5 @@
+apiVersion: v2
+name: postgres
+description: Gemeinsame PostgreSQL-Instanz der SKIP-Plattform (eine Datenbank + ein Benutzer pro Dienst)
+version: 0.1.0
+appVersion: "17.6-alpine"

@@ -1,0 +1,16 @@
+.git
+.github
+docs/
+site/
+deploy/
+apps/skip-web/
+templates/
+docker-compose.yml
+skaffold.yaml
+Makefile
+mkdocs.yml
+**/node_modules
+**/__pycache__
+**/.venv
+**/.pytest_cache
+**/.ruff_cache
