@@ -14,4 +14,4 @@ RUN uv sync --frozen --package skip-api
 
 EXPOSE 8000
 
-CMD ["uv", "run", "--frozen", "--package", "skip-api", "uvicorn", "main:app", "--app-dir", "--reload", "apps/skip-api", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uv", "run", "--frozen", "--package", "skip-api", "uvicorn", "main:app", "--app-dir", "apps/skip-api", "--host", "0.0.0.0", "--port", "8000"]

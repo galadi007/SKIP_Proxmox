@@ -1,6 +1,6 @@
 import pytest
 
-from user.errors import GroupNotFoundError, LeaderRequiredError, UserNotFoundError
+from user.errors import LeaderRequiredError
 from user.service import UserService
 
 

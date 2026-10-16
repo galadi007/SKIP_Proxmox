@@ -1,6 +1,8 @@
+import os
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from kubernetes import config
 
 from auth.api import router as auth_router
@@ -43,3 +45,16 @@ app.include_router(teams_router)
 @app.get("/healthz", tags=["Status"])
 def healthz() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.middleware("http")
+async def catalog_only_guard(request: Request, call_next):
+    if (
+        os.environ.get("PLATFORM_CATALOG_ONLY", "false").lower() == "true"
+        and request.method not in {"GET", "HEAD", "OPTIONS"}
+    ):
+        return JSONResponse(
+            status_code=503,
+            content={"detail": "Die Plattform ist im Katalogbetrieb. Die Bereitstellung von Anwendungen ist noch nicht eingerichtet."},
+        )
+    return await call_next(request)

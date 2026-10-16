@@ -71,7 +71,7 @@ class TeamService:
         full_name = clean_name if clean_name.startswith("team-") else f"team-{clean_name}"
 
         if self.is_configured and self._authentik:
-            if existing := self._authentik.get_team(full_name):
+            if self._authentik.get_team(full_name):
                 raise TeamAlreadyExistsError(full_name)
             raw = self._authentik.create_team(
                 team_name=full_name,

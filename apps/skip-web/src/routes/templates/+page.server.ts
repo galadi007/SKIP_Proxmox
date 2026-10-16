@@ -1,4 +1,4 @@
-import { API_URL } from '$env/static/private';
+import { env } from '$env/dynamic/private';
 import { getApiAuthHeaders } from '$lib/server/auth';
 import type { PageServerLoad } from './$types';
 import { redirect } from '@sveltejs/kit';
@@ -6,7 +6,7 @@ import { redirect } from '@sveltejs/kit';
 export const load: PageServerLoad = async ({ fetch, cookies, locals }) => {
 	const headers = getApiAuthHeaders(locals);
 
-	const res = await fetch(`${API_URL}/api/templates`, {
+	const res = await fetch(`${env.API_URL}/api/templates`, {
 		headers
 	});
 
@@ -22,5 +22,5 @@ export const load: PageServerLoad = async ({ fetch, cookies, locals }) => {
 
 	const templates = await res.json();
 
-	return { templates };
+	return { templates, catalogOnly: env.PLATFORM_CATALOG_ONLY === 'true' };
 };

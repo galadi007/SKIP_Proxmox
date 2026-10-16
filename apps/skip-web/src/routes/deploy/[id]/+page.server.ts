@@ -1,4 +1,4 @@
-import { API_URL } from '$env/static/private';
+import { env } from '$env/dynamic/private';
 import { getApiAuthHeaders } from '$lib/server/auth';
 import type { PageServerLoad, Actions } from './$types';
 import { fail, redirect } from '@sveltejs/kit';
@@ -7,8 +7,8 @@ export const load: PageServerLoad = async ({ fetch, params, locals }) => {
 	const headers = getApiAuthHeaders(locals);
 
 	const [templateRes, nsRes] = await Promise.all([
-		fetch(`${API_URL}/api/templates/${encodeURIComponent(params.id)}`, { headers }),
-		fetch(`${API_URL}/api/namespaces`, { headers })
+		fetch(`${env.API_URL}/api/templates/${encodeURIComponent(params.id)}`, { headers }),
+		fetch(`${env.API_URL}/api/namespaces`, { headers })
 	]);
 
 	if (!templateRes.ok) {
@@ -38,7 +38,7 @@ export const actions: Actions = {
 				.filter(([key]) => !['release_name', 'namespace'].includes(key))
 				.map(([key, value]) => [key, String(value)])
 		);
-		const response = await fetch(`${API_URL}/api/apps`, {
+		const response = await fetch(`${env.API_URL}/api/apps`, {
 			method: 'POST',
 			headers: { ...headers, 'Content-Type': 'application/json' },
 			body: JSON.stringify({ template: params.id, name, namespace, values })

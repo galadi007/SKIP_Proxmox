@@ -1,4 +1,3 @@
-from unittest.mock import MagicMock
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -47,7 +46,6 @@ def test_create_team_already_exists(team_service: TeamService) -> None:
 def test_list_teams_visibility(team_service: TeamService) -> None:
     alice = AuthenticatedUser(username="alice", groups=[])
     bob = AuthenticatedUser(username="bob", groups=[])
-    charlie = AuthenticatedUser(username="charlie", groups=[])
     admin = AuthenticatedUser(username="admin", groups=["skip-admins"])
 
     team_service.create_team(alice, TeamCreateRequest(name="team-alpha"))
@@ -59,6 +57,7 @@ def test_list_teams_visibility(team_service: TeamService) -> None:
     assert alice_teams[0].name == "team-alpha"
 
     # Charlie sieht gar kein Team
+    charlie = AuthenticatedUser(username="charlie", groups=[])
     assert len(team_service.list_teams(charlie)) == 0
 
     # Admin sieht alle Teams
@@ -68,7 +67,6 @@ def test_list_teams_visibility(team_service: TeamService) -> None:
 def test_add_and_remove_member(team_service: TeamService) -> None:
     alice = AuthenticatedUser(username="alice", groups=[])
     bob = AuthenticatedUser(username="bob", groups=[])
-    charlie = AuthenticatedUser(username="charlie", groups=[])
 
     team_service.create_team(alice, TeamCreateRequest(name="proj-x"))
 

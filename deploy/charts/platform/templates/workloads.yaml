@@ -1,0 +1,74 @@
+{{- $tag := required "Set image.tag to a successfully built sha-XXXXXXX image tag before syncing platform" .Values.image.tag -}}
+{{- range $name := list "skip-api" "skip-web" }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ $name }}
+  template:
+    metadata:
+      labels:
+        app: {{ $name }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/config.yaml") $ | sha256sum }}
+    spec:
+      {{- if eq $name "skip-api" }}
+      serviceAccountName: skip-api
+      {{- else }}
+      automountServiceAccountToken: false
+      {{- end }}
+      {{- with $.Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ $name }}
+          image: "{{ $.Values.image.registry }}/{{ $name }}:{{ $tag }}"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: {{ if eq $name "skip-api" }}8000{{ else }}3000{{ end }}
+          envFrom:
+            - configMapRef:
+                name: platform-config
+          {{- if eq $name "skip-web" }}
+          env:
+            - name: OIDC_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: platform-oidc
+                  key: OIDC_CLIENT_SECRET
+          {{- end }}
+          readinessProbe:
+            httpGet:
+              path: {{ if eq $name "skip-api" }}/healthz{{ else }}/login{{ end }}
+              port: http
+          livenessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 30
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+spec:
+  selector:
+    app: {{ $name }}
+  ports:
+    - name: http
+      port: {{ if eq $name "skip-api" }}8000{{ else }}3000{{ end }}
+      targetPort: http
+{{- end }}

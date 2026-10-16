@@ -12,7 +12,7 @@
 	<div class="mb-8">
 		<h1 class="text-2xl font-semibold tracking-tight">Templates</h1>
 		<p class="text-muted-foreground mt-1 text-sm">
-			Wähle eine der Vorlagen aus, um sie zu deployen.
+			{#if data.catalogOnly}Katalogbetrieb: Du kannst die Vorlagen ansehen. Das Bereitstellen von Anwendungen wird noch eingerichtet.{:else}Wähle eine der Vorlagen aus, um sie zu deployen.{/if}
 		</p>
 	</div>
 
@@ -26,7 +26,7 @@
 		{/each}
 	</div>
 
-	{#if selected}
+	{#if selected && !data.catalogOnly}
 		<div class="mt-8 flex justify-end">
 			<Button href="/deploy/{selected}">
 				Configure {data.templates.find((t: any) => t.name === selected)?.displayName} →

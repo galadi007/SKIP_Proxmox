@@ -1,4 +1,4 @@
-import { API_URL } from '$env/static/private';
+import { env } from '$env/dynamic/private';
 import { getApiAuthHeaders } from '$lib/server/auth';
 import type { PageServerLoad, Actions } from './$types';
 import { fail, redirect } from '@sveltejs/kit';
@@ -7,8 +7,8 @@ export const load: PageServerLoad = async ({ fetch, url, cookies, locals }) => {
 	const headers = getApiAuthHeaders(locals);
 	const success = url.searchParams.get('success');
 	const [depRes, usersRes] = await Promise.all([
-		fetch(`${API_URL}/api/apps`, { headers }),
-		fetch(`${API_URL}/api/users`, { headers })
+		fetch(`${env.API_URL}/api/apps`, { headers }),
+		fetch(`${env.API_URL}/api/users`, { headers })
 	]);
 
 	if (depRes.status === 401 || usersRes.status === 401) {
@@ -31,7 +31,7 @@ export const actions: Actions = {
 		const namespace = String(form.get('namespace') ?? '');
 		const name = String(form.get('name') ?? '');
 		const response = await fetch(
-			`${API_URL}/api/apps/${encodeURIComponent(template)}/${encodeURIComponent(namespace)}/${encodeURIComponent(name)}`,
+			`${env.API_URL}/api/apps/${encodeURIComponent(template)}/${encodeURIComponent(namespace)}/${encodeURIComponent(name)}`,
 			{ method: 'DELETE', headers }
 		);
 		if (!response.ok) {
@@ -49,7 +49,7 @@ export const actions: Actions = {
 		const username = String(form.get('username') ?? '');
 
 		const response = await fetch(
-			`${API_URL}/api/apps/${encodeURIComponent(template)}/${encodeURIComponent(namespace)}/${encodeURIComponent(name)}/members`,
+			`${env.API_URL}/api/apps/${encodeURIComponent(template)}/${encodeURIComponent(namespace)}/${encodeURIComponent(name)}/members`,
 			{
 				method: 'POST',
 				headers: { ...headers, 'Content-Type': 'application/json' },
@@ -71,7 +71,7 @@ export const actions: Actions = {
 		const username = String(form.get('username') ?? '');
 
 		const response = await fetch(
-			`${API_URL}/api/apps/${encodeURIComponent(template)}/${encodeURIComponent(namespace)}/${encodeURIComponent(name)}/members/${encodeURIComponent(username)}`,
+			`${env.API_URL}/api/apps/${encodeURIComponent(template)}/${encodeURIComponent(namespace)}/${encodeURIComponent(name)}/members/${encodeURIComponent(username)}`,
 			{ method: 'DELETE', headers }
 		);
 		if (!response.ok) {

@@ -1,0 +1,13 @@
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: skip-platform
+spec:
+  entryPoints: [websecure]
+  routes:
+    - kind: Rule
+      match: Host(`{{ .Values.host }}`)
+      services:
+        - name: skip-web
+          port: 3000
+  tls: {}

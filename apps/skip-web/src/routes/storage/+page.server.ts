@@ -1,4 +1,4 @@
-import { API_URL } from '$env/static/private';
+import { env } from '$env/dynamic/private';
 import { getApiAuthHeaders } from '$lib/server/auth';
 import type { PageServerLoad, Actions } from './$types';
 import { fail, redirect } from '@sveltejs/kit';
@@ -9,12 +9,12 @@ export const load: PageServerLoad = async ({ fetch, url, cookies, locals }) => {
 
 	const [overviewRes, filesRes, mySharesRes, sharedWithMeRes, usersRes, groupsRes] =
 		await Promise.all([
-			fetch(`${API_URL}/api/storage/overview`, { headers }),
-			fetch(`${API_URL}/api/storage/files?folder=${encodeURIComponent(currentFolder)}`, { headers }),
-			fetch(`${API_URL}/api/storage/shares/my`, { headers }),
-			fetch(`${API_URL}/api/storage/shares/shared-with-me`, { headers }),
-			fetch(`${API_URL}/api/users`, { headers }),
-			fetch(`${API_URL}/api/groups`, { headers })
+			fetch(`${env.API_URL}/api/storage/overview`, { headers }),
+			fetch(`${env.API_URL}/api/storage/files?folder=${encodeURIComponent(currentFolder)}`, { headers }),
+			fetch(`${env.API_URL}/api/storage/shares/my`, { headers }),
+			fetch(`${env.API_URL}/api/storage/shares/shared-with-me`, { headers }),
+			fetch(`${env.API_URL}/api/users`, { headers }),
+			fetch(`${env.API_URL}/api/groups`, { headers })
 		]);
 
 	if (overviewRes.status === 401 || filesRes.status === 401) {
@@ -69,7 +69,7 @@ export const actions: Actions = {
 			uploadForm.append('folder', folder);
 		}
 
-		const res = await fetch(`${API_URL}/api/storage/upload`, {
+		const res = await fetch(`${env.API_URL}/api/storage/upload`, {
 			method: 'POST',
 			headers,
 			body: uploadForm
@@ -95,7 +95,7 @@ export const actions: Actions = {
 			return fail(400, { error: 'Bitte einen Ordnernamen eingeben.' });
 		}
 
-		const res = await fetch(`${API_URL}/api/storage/folders`, {
+		const res = await fetch(`${env.API_URL}/api/storage/folders`, {
 			method: 'POST',
 			headers: { ...headers, 'Content-Type': 'application/json' },
 			body: JSON.stringify({ name, parent })
@@ -121,7 +121,7 @@ export const actions: Actions = {
 		}
 
 		const res = await fetch(
-			`${API_URL}/api/storage/files?path=${encodeURIComponent(path)}`,
+			`${env.API_URL}/api/storage/files?path=${encodeURIComponent(path)}`,
 			{
 				method: 'DELETE',
 				headers
@@ -165,7 +165,7 @@ export const actions: Actions = {
 			permission
 		};
 
-		const res = await fetch(`${API_URL}/api/storage/shares`, {
+		const res = await fetch(`${env.API_URL}/api/storage/shares`, {
 			method: 'POST',
 			headers: { ...headers, 'Content-Type': 'application/json' },
 			body: JSON.stringify(payload)
@@ -191,7 +191,7 @@ export const actions: Actions = {
 		}
 
 		const res = await fetch(
-			`${API_URL}/api/storage/shares/${encodeURIComponent(shareId)}`,
+			`${env.API_URL}/api/storage/shares/${encodeURIComponent(shareId)}`,
 			{
 				method: 'DELETE',
 				headers

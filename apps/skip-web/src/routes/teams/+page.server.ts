@@ -1,4 +1,4 @@
-import { API_URL } from '$env/static/private';
+import { env } from '$env/dynamic/private';
 import { getApiAuthHeaders } from '$lib/server/auth';
 import type { PageServerLoad, Actions } from './$types';
 import { fail, redirect } from '@sveltejs/kit';
@@ -23,8 +23,8 @@ export const load: PageServerLoad = async ({ fetch, cookies, locals }) => {
 	const headers = getApiAuthHeaders(locals);
 
 	const [teamsRes, usersRes] = await Promise.all([
-		fetch(`${API_URL}/api/teams`, { headers }),
-		fetch(`${API_URL}/api/users`, { headers })
+		fetch(`${env.API_URL}/api/teams`, { headers }),
+		fetch(`${env.API_URL}/api/users`, { headers })
 	]);
 
 	if (teamsRes.status === 401 || usersRes.status === 401) {
@@ -55,7 +55,7 @@ export const actions: Actions = {
 			return fail(400, { error: 'Bitte gib einen Teamnamen ein.' });
 		}
 
-		const res = await fetch(`${API_URL}/api/teams`, {
+		const res = await fetch(`${env.API_URL}/api/teams`, {
 			method: 'POST',
 			headers: {
 				...headers,
@@ -83,7 +83,7 @@ export const actions: Actions = {
 			return fail(400, { error: 'Teamname fehlt.' });
 		}
 
-		const res = await fetch(`${API_URL}/api/teams/${encodeURIComponent(teamName)}`, {
+		const res = await fetch(`${env.API_URL}/api/teams/${encodeURIComponent(teamName)}`, {
 			method: 'DELETE',
 			headers
 		});
@@ -108,7 +108,7 @@ export const actions: Actions = {
 			return fail(400, { error: 'Teamname und Benutzername erforderlich.' });
 		}
 
-		const res = await fetch(`${API_URL}/api/teams/${encodeURIComponent(teamName)}/members`, {
+		const res = await fetch(`${env.API_URL}/api/teams/${encodeURIComponent(teamName)}/members`, {
 			method: 'POST',
 			headers: {
 				...headers,
@@ -138,7 +138,7 @@ export const actions: Actions = {
 		}
 
 		const res = await fetch(
-			`${API_URL}/api/teams/${encodeURIComponent(teamName)}/members/${encodeURIComponent(username)}`,
+			`${env.API_URL}/api/teams/${encodeURIComponent(teamName)}/members/${encodeURIComponent(username)}`,
 			{
 				method: 'DELETE',
 				headers

@@ -1,5 +1,4 @@
 from pydantic import BaseModel, Field
-from typing import Literal
 
 class TemplateMetadata(BaseModel):
     name: str = Field(min_length=3)

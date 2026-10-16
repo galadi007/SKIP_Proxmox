@@ -13,7 +13,7 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
 		throw error(400, `Authentifizierung fehlgeschlagen: ${errorParam || 'Kein Code übergeben'}`);
 	}
 
-	if (state && savedState && state !== savedState) {
+	if (!state || !savedState || state !== savedState) {
 		throw error(400, 'Ungültiger State-Parameter (CSRF-Schutz)');
 	}
 
@@ -28,7 +28,7 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
 			path: '/',
 			httpOnly: true,
 			sameSite: 'lax',
-			secure: false,
+			secure: url.protocol === 'https:',
 			maxAge: tokens.expires_in || 3600 * 8
 		});
 
@@ -36,7 +36,7 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
 			path: '/',
 			httpOnly: true,
 			sameSite: 'lax',
-			secure: false,
+			secure: url.protocol === 'https:',
 			maxAge: tokens.expires_in || 3600 * 8
 		});
 	} catch (err: any) {

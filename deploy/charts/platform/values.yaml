@@ -1,0 +1,10 @@
+image:
+  registry: ghcr.io/galadi007/skip_proxmox
+  # Set to the successful Build and Push Images run's sha-XXXXXXX tag.
+  tag: ""
+imagePullSecrets: []
+publicUrl: https://skip.192-168-0-166.sslip.io:30443
+host: skip.192-168-0-166.sslip.io
+authentikUrl: https://authentik.192-168-0-166.sslip.io:30443
+# Helm chart's Service exposes port 80, not container port 9000.
+authentikInternalUrl: http://authentik-server.authentik.svc.cluster.local

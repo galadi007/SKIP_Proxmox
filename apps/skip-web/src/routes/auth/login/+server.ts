@@ -10,7 +10,7 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
 		path: '/',
 		httpOnly: true,
 		sameSite: 'lax',
-		secure: false,
+		secure: url.protocol === 'https:',
 		maxAge: 600 // 10 Minuten
 	});
 
@@ -18,7 +18,7 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
 		path: '/',
 		httpOnly: true,
 		sameSite: 'lax',
-		secure: false,
+		secure: url.protocol === 'https:',
 		maxAge: 600 // 10 Minuten
 	});
 

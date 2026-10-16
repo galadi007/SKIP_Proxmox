@@ -3,7 +3,6 @@ from unittest.mock import MagicMock
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from auth.dtos import AuthenticatedUser
 from storage.api import router
 from storage.dtos import FileInfo, StorageOverview
 from storage.service import StorageService, get_storage_service

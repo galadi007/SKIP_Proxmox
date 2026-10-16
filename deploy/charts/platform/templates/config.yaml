@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: platform-config
+data:
+  PLATFORM_CATALOG_ONLY: "true"
+  SKIP_ENV: development
+  API_URL: http://skip-api:8000
+  ORIGIN: {{ .Values.publicUrl | quote }}
+  OIDC_ISSUER_URL: {{ printf "%s/application/o/skip-platform/" .Values.authentikUrl | quote }}
+  OIDC_TOKEN_URL: {{ printf "%s/application/o/token/" .Values.authentikInternalUrl | quote }}
+  OIDC_JWKS_URL: {{ printf "%s/application/o/skip-platform/jwks/" .Values.authentikInternalUrl | quote }}
+  OIDC_REDIRECT_URI: {{ printf "%s/auth/callback" .Values.publicUrl | quote }}
+  OIDC_CLIENT_ID: skip-platform
+  AUTH_DIRECT_REDIRECT: "false"
+  ALLOWED_NAMESPACES: team-data
+  TEMPLATES_DIR: /app/templates
+  APPS_DOMAIN: apps.192-168-0-166.sslip.io
+  APPS_SCHEME: http
+  APPS_PUBLIC_PORT: "30080"

@@ -1,0 +1,4 @@
+apiVersion: v2
+name: skip-platform
+version: 0.1.0
+description: SKIP frontend and API with Authentik login

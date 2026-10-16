@@ -1,4 +1,4 @@
-import { API_URL } from '$env/static/private';
+import { env } from '$env/dynamic/private';
 import { getApiAuthHeaders } from '$lib/server/auth';
 import { error, redirect, type RequestHandler } from '@sveltejs/kit';
 
@@ -10,7 +10,7 @@ export const GET: RequestHandler = async ({ url, fetch, locals }) => {
 
 	const headers = getApiAuthHeaders(locals);
 	const res = await fetch(
-		`${API_URL}/api/storage/presigned-url?path=${encodeURIComponent(path)}&action=download`,
+		`${env.API_URL}/api/storage/presigned-url?path=${encodeURIComponent(path)}&action=download`,
 		{ headers }
 	);
 

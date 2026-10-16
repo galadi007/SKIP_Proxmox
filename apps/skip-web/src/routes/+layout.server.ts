@@ -1,4 +1,4 @@
-import { API_URL } from '$env/static/private';
+import { env } from '$env/dynamic/private';
 import { getApiAuthHeaders } from '$lib/server/auth';
 import type { LayoutServerLoad } from './$types';
 
@@ -8,7 +8,7 @@ export const load: LayoutServerLoad = async ({ fetch, locals }) => {
 	}
 
 	try {
-		const res = await fetch(`${API_URL}/api/me`, {
+		const res = await fetch(`${env.API_URL}/api/me`, {
 			headers: getApiAuthHeaders(locals)
 		});
 		if (res.ok) {

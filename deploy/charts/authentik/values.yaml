@@ -6,10 +6,16 @@ authentik:
   # Secrets (AUTHENTIK_SECRET_KEY, AUTHENTIK_POSTGRESQL__PASSWORD,
   # AUTHENTIK_BOOTSTRAP_PASSWORD, AUTHENTIK_BOOTSTRAP_TOKEN) kommen aus dem
   # Secret "authentik-secret" - NICHT hier im Klartext eintragen.
+  blueprints:
+    configMaps:
+      - skip-platform-blueprint
+
   global:
     envFrom:
       - secretRef:
           name: authentik-secret
+      - secretRef:
+          name: platform-oidc
 
   # Gemeinsame PostgreSQL der Plattform (deploy/charts/postgres).
   authentik:
