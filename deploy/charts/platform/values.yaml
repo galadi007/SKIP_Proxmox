@@ -1,7 +1,7 @@
 image:
   registry: ghcr.io/galadi007/skip_proxmox
   # Set to the successful Build and Push Images run's sha-XXXXXXX tag.
-  tag: ""
+  tag: "sha-c1a964e"
 imagePullSecrets: []
 publicUrl: https://skip.192-168-0-166.sslip.io:30443
 host: skip.192-168-0-166.sslip.io
